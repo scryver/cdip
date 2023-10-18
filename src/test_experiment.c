@@ -5,11 +5,20 @@
 #include <stdlib.h>
 
 #include <unistd.h>
+
+// For memory
 #include <sys/mman.h>
+
+// For files
+#include <sys/stat.h>
+#include <errno.h>
+#include <fcntl.h>
 
 #include "types.h"
 #include "helpers.h"
 #include "memory.h"
+#include "strings.h"
+#include "files.h"
 
 func void do_asserts(void)
 {

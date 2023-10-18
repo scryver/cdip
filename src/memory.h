@@ -24,7 +24,8 @@ func Arena create_arena(sze capacity);
 #endif
 func void out_of_memory_(void)
 {
-    abort();
+    static const s8 msg = cstr("Out of memory!\n");
+    os_exit(msg, 1);
 }
 
 #if COMPILER_LLVM || COMPILER_GCC
@@ -56,7 +57,7 @@ func void *alloc(Arena *arena, sze size, sze align, sze count, u32 flags)
 func Arena create_arena(sze capacity)
 {
     Arena result = {0};
-    result.begin = (byte *)VirtualAlloc(0, capacity, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    result.begin = VirtualAlloc(0, capacity, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     if (result.begin) {
         result.end = result.begin + capacity;
     }

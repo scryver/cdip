@@ -1,4 +1,7 @@
 
+#define true          1
+#define false         0
+
 // Unsigned integers
 typedef uint8_t       u8;
 typedef uint16_t      u16;
