@@ -141,11 +141,11 @@ W32FUNC(byte *) VirtualAlloc(byte *address, usze size, u32 allocType, u32 protec
 W32FUNC(handle) GetStdHandle(u32 stdHandle);
 W32FUNC(handle) CreateFileW(wchar_t *filename, u32 desiredAccess, u32 shareMode, void *security, u32 creationDisposition, u32 flagsAttribs, handle templateFile);
 W32FUNC(b32)    CloseHandle(handle file);
-W32FUNC(b32)    ReadFile(handle file, u8 *buffer, u32 toReadCount, u32 *readCount, void *overlapped);
-W32FUNC(b32)    WriteFile(handle file, u8 *buffer, u32 toWriteCount, u32 *writtenCount, void *overlapped);
+W32FUNC(b32)    ReadFile(handle file, byte *buffer, u32 toReadCount, u32 *readCount, void *overlapped);
+W32FUNC(b32)    WriteFile(handle file, byte *buffer, u32 toWriteCount, u32 *writtenCount, void *overlapped);
 W32FUNC(u32)    SetFilePointer(handle file, i32 distanceLow, i32 *distanceHigh, u32 moveMethod);
 W32FUNC(b32)    GetFileAttributesExW(wchar_t *filename, i32 infoLevelId, void *fileInfo);
-W32FUNC(i32)    MultiByteToWideChar(u32 codePage, u32 flags, char *multiByteStr, i32 multiByteCount, wchar_t *wideCharStr, i32 wideCharCount);
+W32FUNC(i32)    MultiByteToWideChar(u32 codePage, u32 flags, u8 *multiByteStr, i32 multiByteCount, wchar_t *wideCharStr, i32 wideCharCount);
 W32FUNC(void)   ExitProcess(u32 exitCode);
 
 #endif // PLATFORM_WIN32

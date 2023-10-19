@@ -38,7 +38,7 @@ typedef struct OsFile
     sze size;
     s8 filename;
 } OsFile;
-#define no_file_error(f)        (f->flags == OsFile_NoError)
+#define no_file_error(f)        ((f)->error == OsFile_NoError)
 
 func OsFile  open_file(s8 filename, u32 flags, Arena *perm, Arena scratch);
 func void    close_file(OsFile *file);
@@ -66,26 +66,26 @@ func OsFile open_file(s8 filename, u32 flags, Arena *perm, Arena scratch)
 
     if (s8eq(filename, cstr("stdin")))
     {
-        result.platform = (uptr)GetStdHandle(-10 - 0);
+        result.platform = (uptr)GetStdHandle((u32)(-10 - 0));
         result.filename = cstr("stdin");
         result.error = (flags == OsFile_Read) ? OsFile_NoError : OsFile_InvalidOpenFlag;
     }
     else if (s8eq(filename, cstr("stdout")))
     {
-        result.platform = (uptr)GetStdHandle(-10 - 1);
+        result.platform = (uptr)GetStdHandle((u32)(-10 - 1));
         result.filename = cstr("stdout");
         result.error = ((flags == OsFile_Write) || (flags == OsFile_Append)) ? OsFile_NoError : OsFile_InvalidOpenFlag;
     }
     else if (s8eq(filename, cstr("stderr")))
     {
-        result.platform = (uptr)GetStdHandle(-10 - 2);
+        result.platform = (uptr)GetStdHandle((u32)(-10 - 2));
         result.filename = cstr("stderr");
         result.error = ((flags == OsFile_Write) || (flags == OsFile_Append)) ? OsFile_NoError : OsFile_InvalidOpenFlag;
     }
     else
     {
         wchar_t *name = create(&scratch, wchar_t, filename.size + 1, Arena_NoClear);
-        i32 nameSize = MultiByteToWideChar(CP_UTF8, 0, filename.data, filename.size, name, filename.size + 1);
+        i32 nameSize = MultiByteToWideChar(CP_UTF8, 0, filename.data, (i32)filename.size, name, (i32)filename.size + 1);
         name[nameSize] = 0;
 
         Win32FileAttribData attrData = {0};
@@ -107,7 +107,7 @@ func OsFile open_file(s8 filename, u32 flags, Arena *perm, Arena scratch)
         {
             win32Handle = CreateFileW(name, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
         }
-        else if (flags = OsFile_Append)
+        else if (flags == OsFile_Append)
         {
             win32Handle = CreateFileW(name, FILE_APPEND_DATA, 0, 0, OPEN_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
         }
@@ -239,7 +239,7 @@ func sze set_file_offset(OsFile *file, sze offset)
         handle win32Handle = (handle)file->platform;
         if (win32Handle != INVALID_HANDLE_VALUE)
         {
-            i32 upper = (i32)(offset >> 32);
+            i32 upper = (i32)((u64)offset >> 32);
             i32 setLower = (i32)offset;
             u32 lower = SetFilePointer(win32Handle, setLower, &upper, 0);
             if ((lower != INVALID_SET_FILE_POINTER) || (GetLastError() == 0)) {
@@ -267,7 +267,7 @@ func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
     FileResult result = {0};
 
     wchar_t *name = create(&scratch, wchar_t, filename.size + 1, Arena_NoClear);
-    i32 nameSize = MultiByteToWideChar(CP_UTF8, 0, filename.data, filename.size, name, filename.size + 1);
+    i32 nameSize = MultiByteToWideChar(CP_UTF8, 0, filename.data, (i32)filename.size, name, (i32)filename.size + 1);
     name[nameSize] = 0;
 
     handle win32Handle = CreateFileW(name, GENERIC_READ, FILE_SHARE_READ, 0, OPEN_EXISTING, 0, 0);
@@ -337,12 +337,12 @@ func OsFileError write_entire_file(s8 filename, buf source, Arena scratch)
 
     handle win32Handle = INVALID_HANDLE_VALUE;
     if (s8eq(filename, cstr("stdout"))) {
-        win32Handle = GetStdHandle(-10 - 1);
+        win32Handle = GetStdHandle((u32)(-10 - 1));
     } else if (s8eq(filename, cstr("stderr"))) {
-        win32Handle = GetStdHandle(-10 - 2);
+        win32Handle = GetStdHandle((u32)(-10 - 2));
     } else {
         wchar_t *name = create(&scratch, wchar_t, filename.size + 1, Arena_NoClear);
-        i32 nameSize = MultiByteToWideChar(CP_UTF8, 0, filename.data, filename.size, name, filename.size + 1);
+        i32 nameSize = MultiByteToWideChar(CP_UTF8, 0, filename.data, (i32)filename.size, name, (i32)filename.size + 1);
         name[nameSize] = 0;
 
         win32Handle = CreateFileW(name, GENERIC_WRITE, 0, 0, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, 0);
@@ -386,7 +386,7 @@ func OsFileError write_entire_file(s8 filename, buf source, Arena scratch)
 
 func void os_exit(s8 message, i32 returnCode)
 {
-    write_entire_file(cstr("stderr"), buf(message.size, message.data), (Arena){});
+    write_entire_file(cstr("stderr"), buf(message.size, message.data), (Arena){0});
     ExitProcess(returnCode);
 }
 

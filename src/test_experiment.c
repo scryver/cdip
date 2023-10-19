@@ -2,6 +2,14 @@
 
 #include <stdint.h>
 #include <stddef.h>
+
+#if PLATFORM_WIN32
+
+#pragma comment(linker, "/subsystem:console")
+#pragma comment(lib, "kernel32.lib")
+
+#else
+
 #include <stdlib.h>
 
 #include <unistd.h>
@@ -13,6 +21,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <fcntl.h>
+#endif
 
 #include "types.h"
 #include "helpers.h"
@@ -23,7 +32,7 @@
 func void do_asserts(void)
 {
     assert(1);
-    assert(0);
+    //assert(0);
 }
 
 func u64 hash(s8 s)
@@ -91,6 +100,9 @@ func UniqResult unique(sze stringCount, s8 *strings, Arena *perm)
 
 int main(int argCount, char **arguments)
 {
+    unused(argCount);
+    unused(arguments);
+
     s8 strings[] = {
         cstr("LAALALALAL"),
         cstr("Hallo"),
@@ -105,16 +117,23 @@ int main(int argCount, char **arguments)
         cstr("LAALALALALA"),
     };
 
+    Arena permArena = create_arena(1024*1024*1024);
     Arena tempArena = create_arena(1024*1024*1024);
     UniqResult uniqueCount = unique(countof(strings), strings, &tempArena);
     char uniqueChar = '0' + (char)uniqueCount.count;
-    write(1, &uniqueChar, 1);
+
+    OsFile output = open_file(cstr("stdout"), OsFile_Write, &permArena, tempArena);
+    write_to_file(&output, buf(1, &uniqueChar));
     uniqueChar = '\n';
-    write(1, &uniqueChar, 1);
-    debugbreak();
+    write_to_file(&output, buf(1, &uniqueChar));
+    //debugbreak();
 
     s8 testC = cstr("hallo?\n");
-    write(1, testC.data, testC.size);
+    write_to_file(&output, buf(testC.size, testC.data));
+
+    OsFile filer = open_file(cstr("jaja.txt"), OsFile_Write, &permArena, tempArena);
+    write_to_file(&filer, buf(testC.size, testC.data));
+
     do_asserts();
     return 0;
 }

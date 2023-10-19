@@ -24,7 +24,7 @@ func Arena create_arena(sze capacity);
 #endif
 func void out_of_memory_(void)
 {
-    static const s8 msg = cstr("Out of memory!\n");
+    static const s8 msg = {(u8*)"Out of memory!\n", sizeof("Out of memory!\n")-1}; // cstr("Out of memory!\n");
     os_exit(msg, 1);
 }
 
