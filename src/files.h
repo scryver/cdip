@@ -35,7 +35,7 @@ typedef struct OsFile
     uptr platform;
     OsFileError error;
     u32 flags;
-    sze size;
+    i64 size;
     s8 filename;
 } OsFile;
 #define no_file_error(f)        ((f)->error == OsFile_NoError)
@@ -45,8 +45,8 @@ func void    close_file(OsFile *file);
 func sze     read_from_file(OsFile *file, buf dest);
 func sze     write_to_file(OsFile *file, buf source);
 
-func sze     get_file_offset(OsFile *file);
-func sze     set_file_offset(OsFile *file, sze offset);
+func i64     get_file_offset(OsFile *file);
+func i64     set_file_offset(OsFile *file, i64 offset);
 
 typedef struct FileResult
 {
@@ -120,13 +120,7 @@ func OsFile open_file(s8 filename, u32 flags, Arena *perm, Arena scratch)
                         ((flags & OsFile_Read) ? OsFile_FileNotFound : OsFile_FileCantBeCreated));
         if (no_file_error(&result)) {
             result.platform = (uptr)win32Handle;
-#if COMPILER_MSVC_X86
-            assert(attrData.fileSizeHigh == 0);
-            assert(attrData.fileSizeLow <= S32_MAX);
-            result.size = (flags == OsFile_Write) ? 0 : (sze)attrData.fileSizeLow;
-#else
-            result.size = (flags == OsFile_Write) ? 0 : (sze)(((usze)attrData.fileSizeHigh << 32) | (usze)attrData.fileSizeLow);
-#endif
+            result.size = (flags == OsFile_Write) ? 0 : (i64)(((u64)attrData.fileSizeHigh << 32) | (u64)attrData.fileSizeLow);
             result.filename = create_s8(perm, filename);
         }
     }
@@ -201,9 +195,9 @@ func sze write_to_file(OsFile *file, buf source)
     return result;
 }
 
-func sze get_file_offset(OsFile *file)
+func i64 get_file_offset(OsFile *file)
 {
-    sze result = 0;
+    i64 result = 0;
     if (no_file_error(file))
     {
         handle win32Handle = (handle)file->platform;
@@ -212,13 +206,7 @@ func sze get_file_offset(OsFile *file)
             i32 upper = 0;
             u32 lower = SetFilePointer(win32Handle, 0, &upper, 1);
             if ((lower != INVALID_SET_FILE_POINTER) || (GetLastError() == 0)) {
-#if COMPILER_MSVC_X86
-                assert(upper == 0);
-                assert(lower <= S32_MAX);
-                result = (sze)lower;
-#else
-                result = (sze)(((usze)upper << 32) | (usze)lower);
-#endif
+                result = (i64)(((u64)upper << 32) | (u64)lower);
             } else {
                 file->error = OsFile_FileSeekFailed;
             }
@@ -231,25 +219,19 @@ func sze get_file_offset(OsFile *file)
     return result;
 }
 
-func sze set_file_offset(OsFile *file, sze offset)
+func i64 set_file_offset(OsFile *file, i64 offset)
 {
-    sze result = 0;
+    i64 result = 0;
     if (no_file_error(file))
     {
         handle win32Handle = (handle)file->platform;
         if (win32Handle != INVALID_HANDLE_VALUE)
         {
-            i32 upper = (i32)((u64)offset >> 32);
+            i32 upper = (i32)(offset >> 32);
             i32 setLower = (i32)offset;
             u32 lower = SetFilePointer(win32Handle, setLower, &upper, 0);
             if ((lower != INVALID_SET_FILE_POINTER) || (GetLastError() == 0)) {
-#if COMPILER_MSVC_X86
-                assert(upper == 0);
-                assert(lower <= S32_MAX);
-                result = (sze)lower;
-#else
-                result = (sze)(((usze)upper << 32) | (usze)lower);
-#endif
+                result = (i64)(((u64)upper << 32) | (u64)lower);
             } else {
                 file->error = OsFile_FileSeekFailed;
             }
@@ -276,13 +258,9 @@ func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
         Win32FileAttribData attrData = {0};
         if (GetFileAttributesExW(win32Handle, 0, &attrData))
         {
-#if COMPILER_MSVC_X86
-            assert(attrData.fileSizeHigh == 0);
-            assert(attrData.fileSizeLow <= S32_MAX);
-            sze size = (sze)attrData.fileSizeLow;
-#else
-            sze size = (sze)(((usze)attrData.fileSizeHigh << 32) | (usze)attrData.fileSizeLow);
-#endif
+            i64 realSize = (i64)(((u64)attrData.fileSizeHigh << 32) | (u64)attrData.fileSizeLow);
+            sze size = (sze)realSize;
+            assert(realSize == (i64)size);
 
             result.fileBuf.data = create(perm, byte, size, Arena_NoClear | Arena_SoftFail);
             if (result.fileBuf.data)
@@ -295,6 +273,7 @@ func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
                     u32 bytesRead = 0;
                     if (ReadFile(win32Handle, dataAt, readMax, &bytesRead, 0)) {
                         remaining -= (sze)bytesRead;
+                        dataAt += (sze)bytesRead;
                     } else {
                         break;
                     }
@@ -584,9 +563,9 @@ func sze write_to_file(OsFile *file, buf source)
     return result;
 }
 
-func sze get_file_offset(OsFile *file)
+func i64 get_file_offset(OsFile *file)
 {
-    sze result = 0;
+    i64 result = 0;
     if (no_file_error(file))
     {
         i32 fd = (i32)file->platform;
@@ -610,16 +589,18 @@ func sze get_file_offset(OsFile *file)
     return result;
 }
 
-func sze set_file_offset(OsFile *file, sze offset)
+func i64 set_file_offset(OsFile *file, i64 offset)
 {
-    sze result = 0;
+    i64 result = 0;
     if (no_file_error(file))
     {
         i32 fd = (i32)file->platform;
         if (fd >= 0)
         {
             if (offset >= 0) {
-                result = lseek(fd, offset, SEEK_SET);
+                off_t setOffset = (off_t)offset;
+                assert(offset == (i64)setOffset);
+                result = lseek(fd, setOffset, SEEK_SET);
                 if (result < 0) {
                     switch (errno) {
                         case EBADF: { file->error = OsFile_InvalidOsHandle; } break;
@@ -658,13 +639,17 @@ func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
 
         if ((stats.st_mode & S_IFMT) == S_IFREG)
         {
-            result.fileBuf.data = create(perm, byte, stats.st_size, Arena_NoClear | Arena_SoftFail);
+            i64 realSize = stats.st_size;
+            sze size = (sze)realSize;
+            assert(realSize == (i64)size);
+
+            result.fileBuf.data = create(perm, byte, size, Arena_NoClear | Arena_SoftFail);
             if (result.fileBuf.data)
             {
-                sze totalSize = read(fd, result.fileBuf.data, stats.st_size);
-                while (totalSize < stats.st_size)
+                sze totalSize = read(fd, result.fileBuf.data, size);
+                while (totalSize < size)
                 {
-                    sze readSize = read(fd, result.fileBuf.data + totalSize, stats.st_size - totalSize);
+                    sze readSize = read(fd, result.fileBuf.data + totalSize, size - totalSize);
                     if (readSize > 0) {
                         totalSize += readSize;
                     } else if (readSize == 0) {
@@ -676,7 +661,7 @@ func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
                     }
                 }
 
-                if (totalSize == stats.st_size) {
+                if (totalSize == size) {
                     result.error = OsFile_NoError;
                 } else if (totalSize > 0) {
                     result.error = OsFile_PartialRead;
