@@ -2,6 +2,7 @@
 
 curDir="$PWD"
 codeDir="$curDir/src"
+unicodeDir="$curDir/unicode"
 buildDir="$curDir/gebouw"
 
 # Debug opts
@@ -29,6 +30,9 @@ echo "Building test-base..."
 cd "$buildDir" > /dev/null
 
     $compiler $opts "$codeDir"/test_experiment.c -o test-experiment &
+    $compiler $opts "$codeDir"/test_arguments.c -o test-arguments &
+    $compiler $opts "$unicodeDir"/database.c -o unicode-db &
+    $compiler $opts "$unicodeDir"/test_utfenc.c -o test-utf-encoding &
 
 cd "$curDir" > /dev/null
 

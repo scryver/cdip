@@ -1,7 +1,13 @@
+func b32 is_newline(u32 codepoint)
+{
+    b32 result = ((codepoint == '\r') || (codepoint == '\n'));
+    return result;
+}
+
 func sze cstrlen(char *s)
 {
     char *start = s;
-    while (*s++) {}
+    while (*s) { ++s; }
     sze result = s - start;
     return result;
 }
@@ -50,5 +56,25 @@ func u64 s8hash(s8 s)
         result ^= s.data[index];
         result *= IMM_U64(1111111111111111111);
     }
+    return result;
+}
+
+func s8 s8adv(s8 s, sze amount)
+{
+    s8 result = s;
+    amount = s.size < amount ? s.size : amount;
+    result.size -= amount;
+    result.data += amount;
+    return result;
+}
+
+func s8 get_line(s8 s)
+{
+    // TODO(michiel): Make unicode compatible
+    s8 result = {s.data, 0};
+    while (s.size && !is_newline(s.data[0])) {
+        s = s8adv(s, 1);
+    }
+    result.size = s.data - result.data;
     return result;
 }

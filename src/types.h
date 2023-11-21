@@ -33,6 +33,7 @@ typedef struct s8
     sze size;
 } s8;
 #define cstr(s)   (s8){(u8 *)s, lengthof(s)}
+#define s8(sz, d) (s8){(u8 *)d, sz}
 
 typedef struct s8l
 {

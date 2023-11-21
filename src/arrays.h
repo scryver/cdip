@@ -50,5 +50,5 @@ func void grow(void *arr, sze elemSize, sze alignSize, Arena *perm)
 
     baseArr.capacity *= 2;
 
-    memcpy(arr, &baseArr, sizeof(baseArr))
+    memcpy(arr, &baseArr, sizeof(baseArr));
 }

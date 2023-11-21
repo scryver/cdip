@@ -17,6 +17,10 @@
 
 #define ispow2(x)            (((x) != 0) && (((x) & ((x) - 1)) == 0))
 
+#define kilobytes(x)         ((x)*1024)
+#define megabytes(x)         (kilobytes(x)*1024)
+#define gigabytes(x)         (megabytes(x)*1024)
+
 #if COMPILER_GCC || COMPILER_LLVM
 #define invalid_code_path()  __builtin_unreachable()
 #else
