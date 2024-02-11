@@ -16,7 +16,7 @@ func s8 create_s8(Arena *perm, s8 s)
 {
     s8 result = {0};
     result.size = s.size;
-    result.data = create(perm, u8, s.size, Arena_NoClear);
+    result.data = create(perm, u8, s.size, Alloc_NoClear);
     memcpy(result.data, s.data, s.size);
     return result;
 }

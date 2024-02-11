@@ -396,7 +396,7 @@ func OsFile open_file(s8 filename, u32 flags, Arena *perm, Arena scratch)
     }
     else
     {
-        char *name = create(&scratch, char, filename.size + 1, Arena_NoClear);
+        char *name = create(&scratch, char, filename.size + 1, Alloc_NoClear);
         if (filename.size) {
             memcpy(name, filename.data, filename.size);
         }
@@ -625,7 +625,7 @@ func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
 {
     FileResult result = {0};
 
-    char *name = create(&scratch, char, filename.size + 1, Arena_NoClear);
+    char *name = create(&scratch, char, filename.size + 1, Alloc_NoClear);
     memcpy(name, filename.data, filename.size);
     name[filename.size] = 0;
 
@@ -643,7 +643,7 @@ func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
             sze size = (sze)realSize;
             assert(realSize == (i64)size);
 
-            result.fileBuf.data = create(perm, byte, size, Arena_NoClear | Arena_SoftFail);
+            result.fileBuf.data = create(perm, byte, size, Alloc_NoClear | Alloc_SoftFail);
             if (result.fileBuf.data)
             {
                 sze totalSize = read(fd, result.fileBuf.data, size);
@@ -702,7 +702,7 @@ func OsFileError write_entire_file(s8 filename, buf source, Arena scratch)
     } else if (s8eq(filename, cstr("stderr"))) {
         fd = 2;
     } else {
-        char *name = create(&scratch, char, filename.size + 1, Arena_NoClear);
+        char *name = create(&scratch, char, filename.size + 1, Alloc_NoClear);
         memcpy(name, filename.data, filename.size);
         name[filename.size] = 0;
         fd = open(name, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);

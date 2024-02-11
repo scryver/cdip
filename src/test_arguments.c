@@ -27,6 +27,7 @@
 #include "types.h"
 #include "helpers.h"
 #include "memory.h"
+#include "memarena.h"
 #include "arrays.h"
 #include "strings.h"
 #include "hashmap.h"

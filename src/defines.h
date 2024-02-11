@@ -14,7 +14,6 @@
 #define PLATFORM_LINUX    0
 #define PLATFORM_APPLE    0
 
-
 // NOTE(michiel): Auto determination
 
 #if defined(_MSC_VER) && _MSC_VER
@@ -22,10 +21,6 @@
 // NOTE(michiel): Windows
 #undef  COMPILER_MSVC
 #define COMPILER_MSVC 1
-#ifndef _WIN64
-#undef COMPILER_MSVC_X86
-#define COMPILER_MSVC_X86 1
-#endif
 
 #elif defined(__clang__) && __clang__
 

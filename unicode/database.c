@@ -26,6 +26,7 @@
 #include "../src/types.h"
 #include "../src/helpers.h"
 #include "../src/memory.h"
+#include "../src/memarena.h"
 #include "../src/strings.h"
 #include "../src/files.h"
 

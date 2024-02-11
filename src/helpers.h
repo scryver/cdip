@@ -29,9 +29,14 @@
 
 #define invalid_default()    default: { invalid_code_path(); }
 
-#define assert(c)            while (!(c)) invalid_code_path()
-
 #if CDIP_DEVELOP
+
+#define assert(c)            while (!(c)) invalid_code_path()
+#ifdef static_assert
+#define compile_assert(c)    static_assert(c)
+#else
+#define compile_assert(c)    _Static_assert(c, "Assertion failed: " #c)
+#endif
 
 #if COMPILER_MSVC
 #define debugbreak()         __debugbreak()
@@ -52,6 +57,8 @@
 
 #else // CDIP_DEVELOP
 
+#define assert(c)
+#define compile_assert(c)
 #define debugbreak()
 #define unused(x)            x  // NOTE(michiel): Be warned about unused stuff here
 
@@ -66,8 +73,38 @@ func void *memcpy(void *dest, const void *src, usze count)
 {
     const byte *s = src;
     byte *d = dest;
-    while (count--) {
-        *d++ = *s++;
+    if (s < d) {
+        s += count;
+        d += count;
+        while (count--) {
+            *(--d) = *(--s);
+        }
+    } else {
+        while (count--) {
+            *d++ = *s++;
+        }
+    }
+    return dest;
+}
+#endif
+
+#if __has_builtin(__builtin_memmove)
+#define memmove(d, s, c)      __builtin_memmove(d, s, c)
+#else
+func void *memmove(void *dest, const void *src, usze count)
+{
+    const byte *s = src;
+    byte *d = dest;
+    if (s < d) {
+        s += count;
+        d += count;
+        while (count--) {
+            *(--d) = *(--s);
+        }
+    } else {
+        while (count--) {
+            *d++ = *s++;
+        }
     }
     return dest;
 }
