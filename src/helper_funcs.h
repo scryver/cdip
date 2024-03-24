@@ -145,3 +145,31 @@ func BitScan find_msb64(u64 value)
 }
 
 #endif // COMPILER_MSVC
+
+func u32 popcount32(u32 value)
+{
+#if COMPILER_MSVC
+    u32 result = __popcnt(value);
+#elif __has_builtin(__builtin_popcount)
+    u32 result = (u32)__builtin_popcount(value);
+#else
+    value = value - ((value >> 1) & IMM_U32(0x55555555));
+    value = (value & IMM_U32(0x33333333)) + ((value >> 2) & IMM_U32(0x33333333));
+    u32 result = ((value + ((value >> 4) & IMM_U32(0x0F0F0F0F))) * IMM_U32(0x01010101)) >> 24;
+#endif
+    return result;
+}
+
+func u64 popcount64(u64 value)
+{
+#if COMPILER_MSVC
+    u64 result = __popcnt64(value);
+#elif __has_builtin(__builtin_popcount)
+    u64 result = (u64)__builtin_popcountll(value);
+#else
+    value = value - ((value >> 1) & IMM_U32(0x5555555555555555));
+    value = (value & IMM_U32(0x3333333333333333)) + ((value >> 2) & IMM_U32(0x3333333333333333));
+    u64 result = ((value + ((value >> 4) & IMM_U32(0x0F0F0F0F0F0F0F0F))) * IMM_U32(0x0101010101010101)) >> 56;
+#endif
+    return result;
+}

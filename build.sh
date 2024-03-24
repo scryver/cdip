@@ -41,6 +41,7 @@ cd "$buildDir" > /dev/null
     $compiler $opts "$lispDir"/lips.c -o lips &
 
     $compiler $opts "$curDir"/gui/x11test.c -o x11-test -lX11 &
+    $compiler $opts "$curDir"/gui/wavefunccollapse.c -o wave-func-collapse -lX11 &
 
 cd "$curDir" > /dev/null
 
