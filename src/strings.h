@@ -17,7 +17,9 @@ func s8 create_s8(Arena *perm, s8 s)
     s8 result = {0};
     result.size = s.size;
     result.data = create(perm, u8, s.size, Alloc_NoClear);
-    memcpy(result.data, s.data, s.size);
+    if (s.size > 0) {
+        memcpy(result.data, s.data, (usze)s.size);
+    }
     return result;
 }
 
@@ -31,7 +33,7 @@ func s8 create_empty_s8(Arena *perm, sze cap)
 
 func b32 s8eq(s8 a, s8 b)
 {
-    b32 result = (a.size == b.size) && ((a.data == b.data) || (memcmp(a.data, b.data, a.size) == 0));
+    b32 result = (a.size == b.size) && ((a.size == 0) || (a.data == b.data) || (memcmp(a.data, b.data, (usze)a.size) == 0));
     return result;
 }
 
@@ -53,7 +55,7 @@ func u64 s8hash(s8 s)
 {
     u64 result = IMM_U64(0x100);
     for (sze index = 0; index < s.size; ++index) {
-        result ^= s.data[index];
+        result ^= (u64)s.data[index];
         result *= IMM_U64(1111111111111111111);
     }
     return result;
@@ -72,7 +74,7 @@ func s8 get_line(s8 s)
 {
     // TODO(michiel): Make unicode compatible
     s8 result = {s.data, 0};
-    while (s.size && !is_newline(s.data[0])) {
+    while (s.size && !is_newline((u32)s.data[0])) {
         s = s8adv(s, 1);
     }
     result.size = s.data - result.data;

@@ -9,8 +9,19 @@
 
 #define maybeused(x)         (void)x
 
+#ifdef offsetof
+#undef offsetof
+#endif
+
 #define sizeof(x)            (sze)sizeof(x)
+#define sizeof_member(T, m)  sizeof(((T *)0)->m)
 #define alignof(x)           (sze)_Alignof(x)
+#if __has_builtin(__builtin_offsetof)
+#define offsetof(T, m)       (sze)__builtin_offsetof(T, m)
+#else
+#define offsetof(T, m)       (sze)&(((T *)0)->m)
+#endif
+
 #define countof(x)           (sizeof(x) / sizeof(*(x)))
 #define lengthof(x)          (sizeof(x) - 1)
 #define containerof(p, T, m) (T *)((byte *)ptr - offsetof(T, m))
@@ -27,16 +38,9 @@
 #define invalid_code_path()  __assume(0)
 #endif
 
-#define invalid_default()    default: { invalid_code_path(); }
+#define invalid_default()    default: { invalid_code_path(); } break
 
 #if CDIP_DEVELOP
-
-#define assert(c)            while (!(c)) invalid_code_path()
-#ifdef static_assert
-#define compile_assert(c)    static_assert(c)
-#else
-#define compile_assert(c)    _Static_assert(c, "Assertion failed: " #c)
-#endif
 
 #if COMPILER_MSVC
 #define debugbreak()         __debugbreak()
@@ -51,6 +55,14 @@
 #else
 #define debugbreak()         raise(SIGABRT)
 #endif
+#endif
+
+#define assert(c)            while (!(c)) debugbreak()
+//invalid_code_path()
+#ifdef static_assert
+#define compile_assert(c)    static_assert(c)
+#else
+#define compile_assert(c)    _Static_assert(c, "Assertion failed: " #c)
 #endif
 
 #define unused(x)            (void)x

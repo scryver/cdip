@@ -44,7 +44,10 @@ func void grow(void *arr, sze elemSize, sze alignSize, Arena *perm)
     else
     {
         void *newData = alloc(perm, 2*elemSize, alignSize, baseArr.capacity, 0);
-        memcpy(newData, baseArr.data, baseArr.count * elemSize);
+        sze totalSize = baseArr.count * elemSize;
+        if (totalSize > 0) {
+            memcpy(newData, baseArr.data, (usze)totalSize);
+        }
         baseArr.data = newData;
     }
 

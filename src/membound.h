@@ -75,7 +75,7 @@ func BoundBlock *bound_split_block(BoundBlock *block, sze size)
         result->last = block->last;
         result->used = false;
         result->prevUsed = block->used;
-        result->size = (remaining - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
+        result->size = (usze)(remaining - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
 
         BoundBlock *nextBlock = bound_next_block(result);
         if (nextBlock) {
@@ -83,7 +83,7 @@ func BoundBlock *bound_split_block(BoundBlock *block, sze size)
         }
 
         block->last = false;
-        block->size = size & BOUND_SIZE_MASK;
+        block->size = (usze)size & BOUND_SIZE_MASK;
     }
 
     return result;
@@ -91,7 +91,7 @@ func BoundBlock *bound_split_block(BoundBlock *block, sze size)
 
 func BoundBlock *bound_merge_blocks(BoundBlock *left, BoundBlock *right)
 {
-    sze extraSize = sizeof(BoundBlock) + right->size;
+    usze extraSize = sizeof(BoundBlock) + right->size;
     left->size = (left->size + extraSize) & BOUND_SIZE_MASK;
     left->last = right->last;
 
@@ -125,12 +125,13 @@ func void bound_set_linked_blocks(BoundBlock *block, BoundBlock *prev, BoundBloc
 
 func BoundBlock *bound_find_best_fit_block(BoundBlock *list, sze size)
 {
+    assert(size >= 0);
     BoundBlock *result = 0;
-    sze bestSize = SZE_MAX;
+    usze bestSize = USZE_MAX;
 
-    while (list && (bestSize != size))
+    while (list && (bestSize != (usze)size))
     {
-        if ((list->size >= size) && (list->size < bestSize))
+        if ((list->size >= (usze)size) && (list->size < bestSize))
         {
             result = list;
             bestSize = list->size;
@@ -183,12 +184,15 @@ func void bound_prepend_block(BoundMemory *memory, BoundBlock *block)
 
 func sze bound_round_size(sze size)
 {
-    assert((size > 0) && ((usze)size <= BOUND_SIZE_MASK));
+    assert((size >= 0) && ((usze)size <= BOUND_SIZE_MASK));
+    sze result = 0;
+    if (size > 0) {
 #if MEM_SIZE_BITS == 32
-    sze result = (size < 8) ? 8 : ((size + 3) & ~3);
+        result = (size < 8) ? 8 : ((size + 3) & ~3);
 #else
-    sze result = (size < 16) ? 16 : ((size + 7) & ~7);
+        result = (size < 16) ? 16 : ((size + 7) & ~7);
 #endif
+    }
     return result;
 }
 
@@ -198,7 +202,7 @@ func void *bound_alloc(BoundMemory *memory, sze size, sze align, sze count, u32 
     void *result = 0;
 
     sze totalSize = size * count;
-    if ((size != 0) && ((totalSize / size) == count))
+    if ((totalSize > 0) && ((totalSize / size) == count))
     {
         totalSize = bound_round_size(totalSize);
         i32 index = bound_size_index(totalSize);
@@ -228,7 +232,7 @@ func void *bound_alloc(BoundMemory *memory, sze size, sze align, sze count, u32 
 
             result = block + 1;
             // TODO(michiel): Alignment
-            assert((-(uptr)result & (align - 1)) == 0);
+            assert((-(sze)(uptr)result & (align - 1)) == 0);
         }
         else if ((flags & Alloc_SoftFail) == 0)
         {
@@ -245,7 +249,7 @@ func void *bound_dealloc(BoundMemory *memory, void *ptr, sze size)
     if (ptr)
     {
         BoundBlock *block = (BoundBlock *)ptr - 1;
-        assert(size <= block->size);
+        assert((usze)size <= block->size);
 
         BoundBlock *prev = bound_prev_free_block(block);
         BoundBlock *next = bound_next_block(block);
@@ -283,7 +287,7 @@ func void *bound_realloc(BoundMemory *memory, void *ptr, sze oldSize, sze newSiz
 
         if (newSize <= oldSize)
         {
-            assert((-(uptr)ptr & (align - 1)) == 0);
+            assert((-(sze)(uptr)ptr & (align - 1)) == 0);
 
             BoundBlock *split = bound_split_block(block, newSize);
             if (split)
@@ -301,9 +305,9 @@ func void *bound_realloc(BoundMemory *memory, void *ptr, sze oldSize, sze newSiz
         {
             BoundBlock *next = bound_next_block(block);
             sze extraNeeded = newSize - oldSize - sizeof(BoundBlock);
-            if (next && !next->used && (next->size >= extraNeeded))
+            if (next && !next->used && (extraNeeded > 0) && (next->size >= (usze)extraNeeded))
             {
-                assert((-(uptr)ptr & (align - 1)) == 0);
+                assert((-(sze)(uptr)ptr & (align - 1)) == 0);
 
                 bound_remove_linked_block(memory, next);
                 BoundBlock *split = bound_split_block(next, extraNeeded);
@@ -319,7 +323,9 @@ func void *bound_realloc(BoundMemory *memory, void *ptr, sze oldSize, sze newSiz
                 result = bound_alloc(memory, newSize, align, 1, flags);
                 if (result)
                 {
-                    memcpy(result, ptr, oldSize);
+                    if (oldSize > 0) {
+                        memcpy(result, ptr, (usze)oldSize);
+                    }
                     bound_dealloc(memory, ptr, oldSize);
                 }
             }
@@ -338,12 +344,12 @@ func BoundMemory create_bound_memory(sze capacity)
 {
     assert((capacity > 0) && ((usze)capacity <= BOUND_SIZE_MASK));
     BoundMemory result = {0};
-    BoundBlock *base = VirtualAlloc(0, capacity, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+    BoundBlock *base = VirtualAlloc(0, (usze)capacity, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
     if (base) {
         base->last = true;
         base->used = false;
         base->prevUsed = true;
-        base->size = (capacity - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
+        base->size = (usze)(capacity - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
         bound_set_linked_blocks(base, 0, 0);
 
         result.blocks[bound_size_index(base->size)] = base;
@@ -355,12 +361,12 @@ func BoundMemory create_bound_memory(sze capacity)
 {
     assert((capacity > 0) && ((usze)capacity <= BOUND_SIZE_MASK));
     BoundMemory result = {0};
-    BoundBlock *base = mmap(0, capacity, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    BoundBlock *base = mmap(0, (usze)capacity, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     if (base != MAP_FAILED) {
         base->last = true;
         base->used = false;
         base->prevUsed = true;
-        base->size = (capacity - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
+        base->size = (usze)(capacity - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
         bound_set_linked_blocks(base, 0, 0);
 
         result.blocks[bound_size_index(base->size)] = base;
@@ -373,12 +379,12 @@ func BoundMemory create_bound_memory(sze capacity)
     assert((capacity > 0) && ((usze)capacity <= BOUND_SIZE_MASK));
     BoundMemory result = {0};
     BoundBlock *base = 0;
-    kern_return_t allocResult = mach_vm_allocate(mach_task_self(), (mach_vm_address_t *)&base, capacity, VM_FLAGS_ANYWHERE);
+    kern_return_t allocResult = mach_vm_allocate(mach_task_self(), (mach_vm_address_t *)&base, (usze)capacity, VM_FLAGS_ANYWHERE);
     if (allocResult == KERN_SUCCESS) {
         base->last = true;
         base->used = false;
         base->prevUsed = true;
-        base->size = (capacity - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
+        base->size = (usze)(capacity - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
         bound_set_linked_blocks(base, 0, 0);
 
         result.blocks[bound_size_index(base->size)] = base;
@@ -392,12 +398,12 @@ func BoundMemory create_bound_memory(sze capacity)
 {
     assert((capacity > 0) && ((usze)capacity <= BOUND_SIZE_MASK));
     BoundMemory result = {0};
-    BoundBlock *base = malloc(capacity);
+    BoundBlock *base = malloc((usze)capacity);
     if (base) {
         base->last = true;
         base->used = false;
         base->prevUsed = true;
-        base->size = (capacity - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
+        base->size = (usze)(capacity - sizeof(BoundBlock)) & BOUND_SIZE_MASK;
         bound_set_linked_blocks(base, 0, 0);
 
         result.blocks[bound_size_index(base->size)] = base;

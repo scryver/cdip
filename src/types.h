@@ -27,6 +27,14 @@ typedef size_t        usze;
 typedef float         f32;
 typedef double        f64;
 
+#define enum8(name)   i8
+#define enum16(name)  i16
+#define enum32(name)  i32
+
+#define flag8(name)   u8
+#define flag16(name)  u16
+#define flag32(name)  u32
+
 typedef struct s8
 {
     u8 *data;
@@ -37,7 +45,7 @@ typedef struct s8
 
 typedef struct s8l
 {
-    char data[1];  // NOTE(michiel): size encoded into data, at least 1 byte of data
+    u8 data[1];  // NOTE(michiel): size encoded into data, at least 1 byte of data
 } s8l;
 
 typedef struct buf

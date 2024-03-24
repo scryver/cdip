@@ -23,7 +23,7 @@ func void *alloc(Arena *arena, sze size, sze align, sze count, u32 flags)
 {
     assert(ispow2(align));
     sze avail = arena->end - arena->begin;
-    sze padding = -(uptr)arena->begin & (align - 1);
+    sze padding = -(sze)((uptr)arena->begin) & (align - 1);
     void *result = 0;
     if (count <= ((avail - padding) / size))
     {
@@ -31,7 +31,7 @@ func void *alloc(Arena *arena, sze size, sze align, sze count, u32 flags)
         result = arena->begin + padding;
         arena->begin += padding + total;
         if ((flags & Alloc_NoClear) == 0) {
-            memset(result, 0, total);
+            memset(result, 0, (usze)total);
         }
     }
     else if ((flags & Alloc_SoftFail) == 0)
@@ -55,7 +55,7 @@ func Arena create_arena(sze capacity)
 func Arena create_arena(sze capacity)
 {
     Arena result = {0};
-    result.begin = mmap(0, capacity, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
+    result.begin = mmap(0, (usze)capacity, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     if (result.begin != MAP_FAILED) {
         result.end = result.begin + capacity;
     } else {

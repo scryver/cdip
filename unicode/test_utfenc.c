@@ -38,7 +38,7 @@ func i32 utf8_try_decode(s8 str)
     i32 state = 0;
     u32 codepoint = 0;
     for (sze idx = 0; idx < str.size; ++idx) {
-        state = utf8_decode_internal(state, &codepoint, str.data[idx]);
+        state = utf8_decode_internal(state, &codepoint, (u32)str.data[idx]);
         if (state <= 0) {
             break;
         }
@@ -55,13 +55,13 @@ i32 main(int argCount, char **arguments)
 
     for (u32 codepoint = 0; codepoint < 0x200000; ++codepoint)
     {
-        u8 strBuf[4];
+        char strBuf[4];
         s8 utf8str = utf8_encode(codepoint, strBuf, sizeof(strBuf));
 
         i32 state = 0;
         u32 outCode = 0;
         for (sze idx = 0; idx < utf8str.size; ++idx) {
-            state = utf8_decode_internal(state, &outCode, utf8str.data[idx]);
+            state = utf8_decode_internal(state, &outCode, (u32)utf8str.data[idx]);
             if (state <= 0) {
                 break;
             }

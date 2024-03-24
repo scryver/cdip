@@ -5,7 +5,6 @@
 
 // NOTE(michiel): Compiler is auto determined
 #define COMPILER_MSVC     0
-#define COMPILER_MSVC_X86 0
 #define COMPILER_LLVM     0
 #define COMPILER_GCC      0
 

@@ -153,7 +153,7 @@ func u32 utf8_decode(s8 *str)
     i32 curState = 0;
     while (str->size)
     {
-        curState = utf8_decode_internal(curState, &codepoint, str->data[0]);
+        curState = utf8_decode_internal(curState, &codepoint, (u32)str->data[0]);
         *str = s8adv(*str, 1);
         if (curState == 0) {
             result = codepoint;
@@ -167,20 +167,20 @@ func u32 utf8_decode(s8 *str)
     return result;
 }
 
-func s8 utf8_encode(u32 codepoint, u8 *buffer, sze maxSize)
+func s8 utf8_encode(u32 codepoint, char *buffer, sze maxSize)
 {
-    s8 result = {buffer, 0};
+    s8 result = s8(0, buffer);
     if ((codepoint < 0x80) && (maxSize > 0)) {
         result.data[result.size++] = (u8)codepoint;
     } else if ((codepoint < 0x800) && (maxSize > 1)) {
-        result.data[result.size++] = 0xC0 | (u8)(codepoint >> 6);
+        result.data[result.size++] = (u8)(0xC0 | (codepoint >> 6));
         result.data[result.size++] = (u8)(0x80 | (codepoint & 0x3F));
     } else if ((codepoint < 0x10000) && (maxSize > 2)) {
-        result.data[result.size++] = 0xE0 | (u8)(codepoint >> 12);
+        result.data[result.size++] = (u8)(0xE0 | (codepoint >> 12));
         result.data[result.size++] = (u8)(0x80 | ((codepoint >> 6) & 0x3F));
         result.data[result.size++] = (u8)(0x80 | (codepoint & 0x3F));
     } else if (maxSize > 3) {
-        result.data[result.size++] = 0xF0 | (u8)(codepoint >> 18);
+        result.data[result.size++] = (u8)(0xF0 | (codepoint >> 18));
         result.data[result.size++] = (u8)(0x80 | ((codepoint >> 12) & 0x3F));
         result.data[result.size++] = (u8)(0x80 | ((codepoint >>  6) & 0x3F));
         result.data[result.size++] = (u8)(0x80 | (codepoint & 0x3F));

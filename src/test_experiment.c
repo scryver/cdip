@@ -24,11 +24,15 @@
 
 #include "types.h"
 #include "helpers.h"
+#include "helper_funcs.h"
 #include "memory.h"
 #include "memarena.h"
 #include "membound.h"
 #include "strings.h"
 #include "files.h"
+#include "format.h"
+#include "image.h"
+#include "bitmap.h"
 
 func void do_asserts(void)
 {
@@ -40,7 +44,7 @@ func u64 hash(s8 s)
 {
     u64 result = IMM_U64(0x100);
     for (sze index = 0; index < s.size; ++index) {
-        result ^= s.data[index];
+        result ^= (u64)s.data[index];
         result *= IMM_U64(1111111111111111111);
     }
     return result;
@@ -61,16 +65,10 @@ struct StringSet
     s8 key;
 };
 
-func b32 equals(s8 a, s8 b)
-{
-    b32 result = (a.size == b.size) && (memcmp(a.data, b.data, a.size) == 0);
-    return result;
-}
-
 func b32 is_member(StringSet **set, s8 key, Arena *perm)
 {
     for (u64 h = hash(key); *set; h <<= 2) {
-        if (equals(key, (*set)->key)) {
+        if (s8eq(key, (*set)->key)) {
             return 1;
         }
         set = &(*set)->children[h >> 62];
@@ -99,71 +97,6 @@ func UniqResult unique(sze stringCount, s8 *strings, Arena *perm)
     return result;
 }
 
-func void sze_to_file(OsFile *file, sze size)
-{
-    char numBuf[64];
-    buf writeBuf = buf(0, numBuf);
-    if (size)
-    {
-        sze index = 0;
-        while (size)
-        {
-            sze digit = size % 10;
-            size = size / 10;
-            writeBuf.data[writeBuf.size++] = (char)digit + '0';
-        }
-        sze minIdx = 0;
-        sze maxIdx = writeBuf.size - 1;
-        while (minIdx < maxIdx)
-        {
-            char temp = numBuf[minIdx];
-            numBuf[minIdx++] = numBuf[maxIdx];
-            numBuf[maxIdx--] = temp;
-        }
-    }
-    else
-    {
-        writeBuf.data[writeBuf.size++] = '0';
-    }
-    write_to_file(file, writeBuf);
-}
-
-func void ptr_to_file(OsFile *file, void *ptr)
-{
-    char numBuf[64];
-    buf writeBuf = buf(0, numBuf);
-    writeBuf.data[writeBuf.size++] = '0';
-    writeBuf.data[writeBuf.size++] = 'x';
-    if (ptr)
-    {
-        sze index = 0;
-        uptr ptrHex = (uptr)ptr;
-        while (ptrHex)
-        {
-            uptr digit = ptrHex % 16;
-            ptrHex = ptrHex / 16;
-            if (digit < 10) {
-                writeBuf.data[writeBuf.size++] = (char)digit + '0';
-            } else {
-                writeBuf.data[writeBuf.size++] = (char)(digit - 10) + 'A';
-            }
-        }
-        sze minIdx = 2;
-        sze maxIdx = writeBuf.size - 1;
-        while (minIdx < maxIdx)
-        {
-            char temp = numBuf[minIdx];
-            numBuf[minIdx++] = numBuf[maxIdx];
-            numBuf[maxIdx--] = temp;
-        }
-    }
-    else
-    {
-        writeBuf.data[writeBuf.size++] = '0';
-    }
-    write_to_file(file, writeBuf);
-}
-
 int main(int argCount, char **arguments)
 {
     unused(argCount);
@@ -188,29 +121,26 @@ int main(int argCount, char **arguments)
     UniqResult uniqueCount = unique(countof(strings), strings, &tempArena);
     char uniqueChar = '0' + (char)uniqueCount.count;
 
-    OsFile output = open_file(cstr("stdout"), OsFile_Write, &permArena, tempArena);
-    write_to_file(&output, buf(1, &uniqueChar));
-    uniqueChar = '\n';
-    write_to_file(&output, buf(1, &uniqueChar));
+    OsFile outFile = open_file(cstr("stdout"), OsFile_Write, &permArena, tempArena);
+    fmt_buf output = fmt_buf_fd(1024, create(&permArena, byte, 1024), &outFile);
+    append_byte(&output, uniqueChar);
+    append_byte(&output, '\n');
     //debugbreak();
 
     s8 testC = cstr("hallo?\n");
-    write_to_file(&output, buf(testC.size, testC.data));
+    append_s8(&output, testC);
 
     OsFile filer = open_file(cstr("jaja.txt"), OsFile_Write, &permArena, tempArena);
-    write_to_file(&filer, buf(testC.size, testC.data));
+    write_str_to_file(&filer, testC);
     close_file(&filer);
 
     BoundMemory boundMem = create_bound_memory(128*1024*1024);
-    s8 preIdx = cstr("Index ");
-    s8 midIdx = cstr(": ");
-    s8 postIdx = cstr("\n");
     for (sze idx = 0; idx < countof(boundMem.blocks); ++idx) {
-        write_to_file(&output, buf(preIdx.size, preIdx.data));
-        sze_to_file(&output, idx);
-        write_to_file(&output, buf(midIdx.size, midIdx.data));
-        ptr_to_file(&output, boundMem.blocks[idx]);
-        write_to_file(&output, buf(postIdx.size, postIdx.data));
+        append_cstr(&output, "Index ");
+        append_i64(&output, idx);
+        append_cstr(&output, ": ");
+        append_ptr(&output, boundMem.blocks[idx]);
+        append_byte(&output, '\n');
     }
     byte *test01 = bound_create(&boundMem, byte, 14);
     byte *test02 = bound_create(&boundMem, byte, 514);
@@ -226,11 +156,11 @@ int main(int argCount, char **arguments)
     byte *test12 = bound_create(&boundMem, byte, 450);
     byte *test13 = bound_create(&boundMem, byte, 3045);
     for (sze idx = 0; idx < countof(boundMem.blocks); ++idx) {
-        write_to_file(&output, buf(preIdx.size, preIdx.data));
-        sze_to_file(&output, idx);
-        write_to_file(&output, buf(midIdx.size, midIdx.data));
-        ptr_to_file(&output, boundMem.blocks[idx]);
-        write_to_file(&output, buf(postIdx.size, postIdx.data));
+        append_cstr(&output, "Index ");
+        append_i64(&output, idx);
+        append_cstr(&output, ": ");
+        append_ptr(&output, boundMem.blocks[idx]);
+        append_byte(&output, '\n');
     }
     bound_dealloc(&boundMem, test10, 1);
     bound_dealloc(&boundMem, test03, 89);
@@ -246,12 +176,23 @@ int main(int argCount, char **arguments)
     bound_dealloc(&boundMem, test07, 213);
     bound_dealloc(&boundMem, test04, 52);
     for (sze idx = 0; idx < countof(boundMem.blocks); ++idx) {
-        write_to_file(&output, buf(preIdx.size, preIdx.data));
-        sze_to_file(&output, idx);
-        write_to_file(&output, buf(midIdx.size, midIdx.data));
-        ptr_to_file(&output, boundMem.blocks[idx]);
-        write_to_file(&output, buf(postIdx.size, postIdx.data));
+        append_cstr(&output, "Index ");
+        append_i64(&output, idx);
+        append_cstr(&output, ": ");
+        append_ptr(&output, boundMem.blocks[idx]);
+        append_byte(&output, '\n');
     }
+
+    FileResult readBitmapFile = read_entire_file(cstr("data/test_image.bmp"), &permArena, tempArena);
+    if (readBitmapFile.error == OsFile_NoError) {
+        Image bitmapImage = bitmap_load(readBitmapFile.fileBuf, &permArena);
+        if (bitmapImage.pixels) {
+            bitmap_save(&bitmapImage, cstr("outtest.bmp"), tempArena);
+        }
+    }
+
+    flush(&output);
+    close_file(&outFile);
 
     do_asserts();
     return 0;

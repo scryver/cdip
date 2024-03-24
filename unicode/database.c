@@ -54,12 +54,12 @@ int main(int argCount, char **arguments)
     FileResult ucdFileResult = read_entire_file(cstr("./unicode/UnicodeData.txt"), &permArena, scratchArena);
     if (ucdFileResult.error == OsFile_NoError)
     {
-        s8 ucdFile = {(u8*)ucdFileResult.fileBuf.data, ucdFileResult.fileBuf.size};
+        s8 ucdFile = s8(ucdFileResult.fileBuf.size, ucdFileResult.fileBuf.data);
         while (ucdFile.size)
         {
             s8 line = get_line(ucdFile);
             ucdFile = s8adv(ucdFile, line.size);
-            while (ucdFile.size && is_newline(ucdFile.data[0])) {
+            while (ucdFile.size && is_newline((u32)ucdFile.data[0])) {
                 ucdFile = s8adv(ucdFile, 1);
             }
 

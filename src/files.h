@@ -40,10 +40,12 @@ typedef struct OsFile
 } OsFile;
 #define no_file_error(f)        ((f)->error == OsFile_NoError)
 
+// NOTE(michiel): If perm is not 0, we allocate the filename in the perm arena
 func OsFile  open_file(s8 filename, u32 flags, Arena *perm, Arena scratch);
 func void    close_file(OsFile *file);
 func sze     read_from_file(OsFile *file, buf dest);
 func sze     write_to_file(OsFile *file, buf source);
+func sze     write_str_to_file(OsFile *file, s8 source) { return write_to_file(file, buf(source.size, source.data)); }
 
 func i64     get_file_offset(OsFile *file);
 func i64     set_file_offset(OsFile *file, i64 offset);
@@ -67,19 +69,16 @@ func OsFile open_file(s8 filename, u32 flags, Arena *perm, Arena scratch)
     if (s8eq(filename, cstr("stdin")))
     {
         result.platform = (uptr)GetStdHandle((u32)(-10 - 0));
-        result.filename = cstr("stdin");
         result.error = (flags == OsFile_Read) ? OsFile_NoError : OsFile_InvalidOpenFlag;
     }
     else if (s8eq(filename, cstr("stdout")))
     {
         result.platform = (uptr)GetStdHandle((u32)(-10 - 1));
-        result.filename = cstr("stdout");
         result.error = ((flags == OsFile_Write) || (flags == OsFile_Append)) ? OsFile_NoError : OsFile_InvalidOpenFlag;
     }
     else if (s8eq(filename, cstr("stderr")))
     {
         result.platform = (uptr)GetStdHandle((u32)(-10 - 2));
-        result.filename = cstr("stderr");
         result.error = ((flags == OsFile_Write) || (flags == OsFile_Append)) ? OsFile_NoError : OsFile_InvalidOpenFlag;
     }
     else
@@ -121,8 +120,13 @@ func OsFile open_file(s8 filename, u32 flags, Arena *perm, Arena scratch)
         if (no_file_error(&result)) {
             result.platform = (uptr)win32Handle;
             result.size = (flags == OsFile_Write) ? 0 : (i64)(((u64)attrData.fileSizeHigh << 32) | (u64)attrData.fileSizeLow);
-            result.filename = create_s8(perm, filename);
         }
+    }
+
+    if (no_file_error(&result) && perm) {
+        result.filename = create_s8(perm, filename);
+    } else {
+        result.filename = filename;
     }
     return result;
 }
@@ -173,6 +177,7 @@ func sze write_to_file(OsFile *file, buf source)
         handle win32Handle = (handle)file->platform;
         if (win32Handle != INVALID_HANDLE_VALUE)
         {
+            // TODO(michiel): I don't think we need a loop here as windows won't do a partial write
             while (result < source.size)
             {
                 sze remaining = source.size - result;
@@ -379,26 +384,23 @@ func OsFile open_file(s8 filename, u32 flags, Arena *perm, Arena scratch)
     if (s8eq(filename, cstr("stdin")))
     {
         result.platform = (uptr)0;
-        result.filename = cstr("stdin");
         result.error = (flags == OsFile_Read) ? OsFile_NoError : OsFile_InvalidOpenFlag;
     }
     else if (s8eq(filename, cstr("stdout")))
     {
         result.platform = (uptr)1;
-        result.filename = cstr("stdout");
         result.error = ((flags == OsFile_Write) || (flags == OsFile_Append)) ? OsFile_NoError : OsFile_InvalidOpenFlag;
     }
     else if (s8eq(filename, cstr("stderr")))
     {
         result.platform = (uptr)2;
-        result.filename = cstr("stderr");
         result.error = ((flags == OsFile_Write) || (flags == OsFile_Append)) ? OsFile_NoError : OsFile_InvalidOpenFlag;
     }
     else
     {
         char *name = create(&scratch, char, filename.size + 1, Alloc_NoClear);
-        if (filename.size) {
-            memcpy(name, filename.data, filename.size);
+        if (filename.size > 0) {
+            memcpy(name, filename.data, (usze)filename.size);
         }
         name[filename.size] = 0;
 
@@ -433,7 +435,6 @@ func OsFile open_file(s8 filename, u32 flags, Arena *perm, Arena scratch)
                     result.platform = (uptr)linuxHandle;
                     result.error = OsFile_NoError;
                     result.size = (flags == OsFile_Write) ? 0 : stats.st_size;
-                    result.filename = create_s8(perm, filename);
                 } else {
                     switch (errno) {
                         case EEXIST:      { result.error = OsFile_AlreadyExists; } break;
@@ -473,6 +474,12 @@ func OsFile open_file(s8 filename, u32 flags, Arena *perm, Arena scratch)
             result.error = OsFile_NotAFile;
         }
     }
+
+    if (no_file_error(&result) && perm) {
+        result.filename = create_s8(perm, filename);
+    } else {
+        result.filename = filename;
+    }
     return result;
 }
 
@@ -491,13 +498,14 @@ func void close_file(OsFile *file)
 
 func sze read_from_file(OsFile *file, buf dest)
 {
+    assert(dest.size > 0);
     sze result = 0;
     if (no_file_error(file))
     {
         i32 fd = (i32)file->platform;
         if (fd >= 0)
         {
-            sze bytesRead = read(fd, dest.data, dest.size);
+            sze bytesRead = read(fd, dest.data, (usze)dest.size);
             if (bytesRead >= 0) {
                 result = bytesRead;
             } else {
@@ -526,6 +534,7 @@ func sze read_from_file(OsFile *file, buf dest)
 
 func sze write_to_file(OsFile *file, buf source)
 {
+    assert(source.size >= 0);
     sze result = 0;
     if (no_file_error(file))
     {
@@ -534,7 +543,7 @@ func sze write_to_file(OsFile *file, buf source)
         {
             while ((result < source.size) && no_file_error(file))
             {
-                sze bytesWritten = write(fd, source.data + result, source.size - result);
+                sze bytesWritten = write(fd, source.data + result, (usze)(source.size - result));
                 if (bytesWritten >= 0) {
                     result += bytesWritten;
                     file->size += bytesWritten;
@@ -623,10 +632,11 @@ func i64 set_file_offset(OsFile *file, i64 offset)
 
 func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
 {
+    assert(filename.size > 0);
     FileResult result = {0};
 
     char *name = create(&scratch, char, filename.size + 1, Alloc_NoClear);
-    memcpy(name, filename.data, filename.size);
+    memcpy(name, filename.data, (usze)filename.size);
     name[filename.size] = 0;
 
     i32 fd = open(name, O_RDONLY);
@@ -640,28 +650,34 @@ func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
         if ((stats.st_mode & S_IFMT) == S_IFREG)
         {
             i64 realSize = stats.st_size;
-            sze size = (sze)realSize;
+            usze size = 0;
+            if (realSize > 0) {
+                size = (usze)realSize;
+            }
             assert(realSize == (i64)size);
 
-            result.fileBuf.data = create(perm, byte, size, Alloc_NoClear | Alloc_SoftFail);
+            result.fileBuf.data = create(perm, byte, (sze)size, Alloc_NoClear | Alloc_SoftFail);
             if (result.fileBuf.data)
             {
                 sze totalSize = read(fd, result.fileBuf.data, size);
-                while (totalSize < size)
+                if (totalSize >= 0)
                 {
-                    sze readSize = read(fd, result.fileBuf.data + totalSize, size - totalSize);
-                    if (readSize > 0) {
-                        totalSize += readSize;
-                    } else if (readSize == 0) {
-                        break;
-                    } else {
-                        if (errno != EINTR) {
+                    while ((usze)totalSize < size)
+                    {
+                        sze readSize = read(fd, result.fileBuf.data + totalSize, size - (usze)totalSize);
+                        if (readSize > 0) {
+                            totalSize += readSize;
+                        } else if (readSize == 0) {
                             break;
+                        } else {
+                            if (errno != EINTR) {
+                                break;
+                            }
                         }
                     }
                 }
 
-                if (totalSize == size) {
+                if ((usze)totalSize == size) {
                     result.error = OsFile_NoError;
                 } else if (totalSize > 0) {
                     result.error = OsFile_PartialRead;
@@ -692,6 +708,8 @@ func FileResult read_entire_file(s8 filename, Arena *perm, Arena scratch)
 
 func OsFileError write_entire_file(s8 filename, buf source, Arena scratch)
 {
+    assert(filename.size > 0);
+    assert(source.size >= 0);
     OsFileError result = OsFile_Uninitialized;
 
     b32 shouldClose = false;
@@ -703,7 +721,7 @@ func OsFileError write_entire_file(s8 filename, buf source, Arena scratch)
         fd = 2;
     } else {
         char *name = create(&scratch, char, filename.size + 1, Alloc_NoClear);
-        memcpy(name, filename.data, filename.size);
+        memcpy(name, filename.data, (usze)filename.size);
         name[filename.size] = 0;
         fd = open(name, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
         shouldClose = true;
@@ -711,17 +729,20 @@ func OsFileError write_entire_file(s8 filename, buf source, Arena scratch)
 
     if (fd >= 0)
     {
-        sze totalSize = write(fd, source.data, source.size);
-        while (totalSize < source.size)
+        sze totalSize = write(fd, source.data, (usze)source.size);
+        if (totalSize > 0)
         {
-            sze writeSize = write(fd, source.data + totalSize, source.size - totalSize);
-            if (writeSize > 0) {
-                totalSize += writeSize;
-            } else if (writeSize == 0) {
-                break;
-            } else {
-                if (errno != EINTR) {
+            while (totalSize < source.size)
+            {
+                sze writeSize = write(fd, source.data + totalSize, (usze)(source.size - totalSize));
+                if (writeSize > 0) {
+                    totalSize += writeSize;
+                } else if (writeSize == 0) {
                     break;
+                } else {
+                    if (errno != EINTR) {
+                        break;
+                    }
                 }
             }
         }
@@ -748,7 +769,7 @@ func OsFileError write_entire_file(s8 filename, buf source, Arena scratch)
 
 func void os_exit(s8 message, i32 returnCode)
 {
-    write_entire_file(cstr("stderr"), buf(message.size, message.data), (Arena){});
+    write_entire_file(cstr("stderr"), buf(message.size, message.data), (Arena){0});
     _exit(returnCode);
 }
 
