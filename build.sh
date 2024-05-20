@@ -43,6 +43,9 @@ cd "$buildDir" > /dev/null
     $compiler $opts "$curDir"/gui/x11test.c -o x11-test -lX11 &
     $compiler $opts "$curDir"/gui/wavefunccollapse.c -o wave-func-collapse -lX11 &
 
+    $compiler $opts "$curDir"/keyval/keyval_server.c -o keyval-server &
+    $compiler $opts "$curDir"/keyval/keyval_client.c -o keyval-client &
+
 cd "$curDir" > /dev/null
 
 wait
