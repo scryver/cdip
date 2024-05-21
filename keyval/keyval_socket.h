@@ -10,4 +10,7 @@ func i32 socket_accept(i32 server);
 
 func i32 socket_client(u32 address, u16 port);
 
+func b32 read_full(i32 sock, sze count, char *buffer);
+func b32 write_all(i32 sock, sze count, char *buffer);
+
 #endif //KEYVAL_SOCKET_H

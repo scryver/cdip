@@ -75,3 +75,35 @@ func i32 socket_client(u32 address, u16 port)
     }
     return sock;
 }
+
+func b32 read_full(i32 sock, sze count, char *buffer)
+{
+    b32 result = true;
+    while (count > 0)
+    {
+        ssize_t readCount = read(sock, buffer, (size_t)count);
+        if (readCount <= 0) {
+            result = false;
+            break;
+        }
+        count -= readCount;
+        buffer += readCount;
+    }
+    return result;
+}
+
+func b32 write_all(i32 sock, sze count, char *buffer)
+{
+    b32 result = true;
+    while (count > 0)
+    {
+        ssize_t writeCount = write(sock, buffer, (size_t)count);
+        if (writeCount <= 0) {
+            result = false;
+            break;
+        }
+        count -= writeCount;
+        buffer += writeCount;
+    }
+    return result;
+}
