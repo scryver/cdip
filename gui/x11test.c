@@ -30,6 +30,7 @@
 #include "../src/memarena.h"
 #include "../src/strings.h"
 #include "../src/files.h"
+#include "../src/format.h"
 
 #if 0
 typedef struct OsWindow
@@ -161,6 +162,7 @@ int main(int argCount, char **arguments)
     ui.mouse.btnDown    = 0;
 
     f32 testSlider = 0.5f;
+    f32 testSliMet = 0.5f;
 
     b32 sizeChanged = false;
     b32 windowIsOpen = true;
@@ -300,54 +302,27 @@ int main(int argCount, char **arguments)
             0.75f,
             0.875f,
         };
+        //draw_rect(&drawing, 24, 24, 41, 434, 0xFFFF00FF);
         ui_slider_vert(&ui, 25, 25, 39, 432, &testSlider, sizeof(linePos)/sizeof(*linePos), linePos, 1);
-#if 0
-        draw_horz_line(&drawing,  25,  90, 39, 0xFF000000);
-        draw_horz_line(&drawing,  25, 140, 39, 0xFF000000);
-        draw_horz_line(&drawing,  25, 190, 39, 0xFF000000);
-        draw_rect(&drawing,       25, 239, 39, 3, 0xFF000000);
-        draw_horz_line(&drawing,  25, 290, 39, 0xFF000000);
-        draw_horz_line(&drawing,  25, 340, 39, 0xFF000000);
-        draw_horz_line(&drawing,  25, 390, 39, 0xFF000000);
-        draw_round_rect(&drawing, 39, 42, 11, 400, 5, 0xFF606060);
-        draw_round_rect(&drawing, 40, 40,  9, 400, 4, 0xFF000000);
-        draw_round_rect(&drawing, 41, 43,  7, 396, 3, 0xFF202020);
-        draw_circ(&drawing, 44, 40 + sliderAt + 3, 15, 0x80000000);
-        draw_circ(&drawing, 44, 40 + sliderAt, 15, 0xFFF0F0F0);
-        draw_circ_grad(&drawing, 44, 40 + sliderAt, 13, 0xFFE95A00, 0xFFAA562F);
-#endif
+        u8 sliderBuf[64];
+        fmt_buf sliderStr = fmt_buf(sizeof(sliderBuf), sliderBuf);
+        append_fast_f64(&sliderStr, (f64)testSlider);
+        append_byte(&sliderStr, 0);
+        draw_text(&drawing, &font, 25, 460, s8(sliderStr.size - 1, sliderBuf), 0xFF000000);
 
         // NOTE(michiel): Meter
-        i32 meterAt = clamp_i32(0, ui.mouse.pos.y - 40, 400);
-        draw_round_rect(&drawing, 79, 42, 21, 400, 7, 0xFF606060);
-        draw_round_rect(&drawing, 80, 40, 19, 400, 6, 0xFF000000);
-        draw_round_rect(&drawing, 81, 43, 17, 396, 5, 0xFF202020);
-        DrawContext meterFill = drawing;
-        meterFill.pixels += (40 + meterAt) * drawing.stride;
-        meterFill.dim.h  -= 40 + meterAt;
-        draw_round_rect_grad(&meterFill, 81, 1 - meterAt, 17, 398, 5, 0xFFE95A00, 0xFFAA562F);
+        //draw_rect(&drawing, 79, 39, 23, 402, 0xFFFF00FF);
+        ui_meter_vert(&ui, 80, 40, 21, 400, 1.0f - (f32)(ui.mouse.pos.y - 40) / 400.0f);
 
         // NOTE(michiel): Slider/Meter
-        i32 sliderAt = clamp_i32(0, ui.mouse.pos.y - 40, 400);
-        draw_horz_line(&drawing,  125,  90, 39, 0xFF000000);
-        draw_horz_line(&drawing,  125, 140, 39, 0xFF000000);
-        draw_horz_line(&drawing,  125, 190, 39, 0xFF000000);
-        draw_rect(&drawing,       125, 239, 39, 3, 0xFF000000);
-        draw_horz_line(&drawing,  125, 290, 39, 0xFF000000);
-        draw_horz_line(&drawing,  125, 340, 39, 0xFF000000);
-        draw_horz_line(&drawing,  125, 390, 39, 0xFF000000);
-        draw_round_rect(&drawing, 139, 42, 11, 400, 5, 0xFF606060);
-        draw_round_rect(&drawing, 140, 40,  9, 400, 4, 0xFF000000);
-        draw_round_rect(&drawing, 141, 43,  7, 396, 3, 0xFF202020);
-        DrawContext sliderFill = drawing;
-        sliderFill.pixels += (40 + sliderAt) * drawing.stride;
-        sliderFill.dim.h  -= (40 + sliderAt);
-        draw_round_rect_grad(&sliderFill, 141, 1 - sliderAt, 7, 398, 3, 0xFFE95A00, 0xFFAA562F);
-        draw_circ(&drawing, 144, (40 + sliderAt) + 3, 15, 0x80000000);
-        draw_circ(&drawing, 144, (40 + sliderAt), 15, 0xFFF0F0F0);
-        draw_circ_grad(&drawing, 144, (40 + sliderAt), 13, 0xFFE95A00, 0xFFAA562F);
+        //draw_rect(&drawing, 124, 24, 41, 434, 0xFFFF00FF);
+        ui_slider_meter_vert(&ui, 125, 25, 39, 432, &testSliMet, sizeof(linePos)/sizeof(*linePos), linePos, 3);
+        sliderStr = fmt_buf(sizeof(sliderBuf), sliderBuf);
+        append_fast_f64(&sliderStr, (f64)testSliMet);
+        append_byte(&sliderStr, 0);
+        draw_text(&drawing, &font, 125, 460, s8(sliderStr.size - 1, sliderBuf), 0xFF000000);
 
-        font_setup(&font, &fontTex, 18.0f, 0.0f);
+        font_setup(&font, &fontTex, 15.0f, 0.0f);
         draw_rect(&drawing, 300, 100, 200, 24, 0xFFFF0000);
         draw_char(&drawing, &font, 300, 100, 'A', 0xFF000000);
         draw_char(&drawing, &font, 316, 100, 'a', 0xFF000000);
@@ -359,6 +334,7 @@ int main(int argCount, char **arguments)
         draw_char(&drawing, &font, 388, 100, 's', 0xFF000000);
         draw_char(&drawing, &font, 400, 100, 't', 0xFF000000);
         draw_char(&drawing, &font, 412, 100, 'u', 0xFF000000);
+        draw_text(&drawing, &font, 424, 100, cstr("abcd"), 0xFF000000);
         draw_text(&drawing, &font, 300, 150, cstr("Aabcpqrstu"), 0xFF000000);
         draw_text(&drawing, &font, 300, 200, cstr("AWAKENING"), 0xFF000000);
 #if 0

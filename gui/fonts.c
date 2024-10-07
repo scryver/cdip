@@ -54,6 +54,7 @@ typedef struct FontTexture
 
     f32 baseScale;
 
+    u32 replacementChar;
     i32 unicodeMapCount;
     i32 maxGlyphCount;
     i32 glyphCount;
@@ -127,28 +128,6 @@ unzip_buffer(Arena *memory, buf zippedFile)
     return result;
 }
 
-func u8 *get_texture_mipmap(u8 *data, i32 size)
-{
-    u8 *result = data; //data + size * (size / 2);
-    return result;
-}
-
-func void downsample_texture(u8 *oldData, i32 oldSize, u8 *newData, i32 newSize)
-{
-    // expect oldSize == 2 * newSize
-    for (i32 y = 0; y < newSize; ++y)
-    {
-        for (i32 x = 0;  x < newSize; ++x) {
-            u8 pixX0Y0 = oldData[(y * 2) * oldSize + x * 2];
-            u8 pixX1Y0 = oldData[(y * 2) * oldSize + x * 2 + 1];
-            u8 pixX0Y1 = oldData[(y * 2 + 1) * oldSize + x * 2];
-            u8 pixX1Y1 = oldData[(y * 2 + 1) * oldSize + x * 2 + 1];
-            u32 newPix = (u32)pixX0Y0 + pixX1Y0 + pixX0Y1 + pixX1Y1;
-            *newData++ = (u8)(newPix / 4);
-        }
-    }
-}
-
 func b32 font_load_texture(FontTexture *destFont, buf fontBuf)
 {
     destFont->usedMem = destFont->memory;
@@ -190,18 +169,15 @@ func b32 font_load_texture(FontTexture *destFont, buf fontBuf)
                 destFont->glyphs = (Glyph *)(fontBuf.data + font_file_glyph_offset(fontFile));
                 destFont->kerning = (i32 *)(fontBuf.data + font_file_kerning_offset(fontFile));
 
-                i32 texSize = fontFile->texSize;
-                destFont->texSize = texSize;
-                u8 *texture = (u8 *)fontBuf.data + font_file_texture_offset(fontFile);
-                destFont->texture = create(&destFont->usedMem, u8, (texSize + texSize / 2) * texSize);
-                memcpy(get_texture_mipmap(destFont->texture, texSize), texture, (usze)(texSize * texSize));
-                while (texSize > 1) {
-                    i32 newSize = texSize / 2;
-                    downsample_texture(get_texture_mipmap(destFont->texture, texSize), texSize,
-                                       get_texture_mipmap(destFont->texture, newSize), newSize);
-                    texSize = newSize;
+                if ((destFont->unicodeMapCount > 0xFFFD) && (destFont->unicodeMap[0xFFFD] != 0)) {
+                    destFont->replacementChar = 0xFFFD;
+                } else {
+                    destFont->replacementChar = '?';
                 }
 
+                i32 texSize = fontFile->texSize;
+                destFont->texSize = texSize;
+                destFont->texture = (u8 *)fontBuf.data + font_file_texture_offset(fontFile);
                 result = true;
             }
         }
@@ -228,7 +204,7 @@ func void font_setup(GuiFont *destFont, FontTexture *fontTexture, f32 pixelSize,
 func i32 font_get_kerning(FontTexture *font, i32 glyphIndex, i32 prevIndex)
 {
     i32 result = 0;
-    if ((glyphIndex < font->maxGlyphCount) && (prevIndex < font->maxGlyphCount)) {
+    if (prevIndex && (glyphIndex < font->maxGlyphCount) && (prevIndex < font->maxGlyphCount)) {
         result = font->kerning[prevIndex * font->maxGlyphCount + glyphIndex];
     }
     return result;
@@ -242,7 +218,7 @@ typedef struct GlyphResult
 
 func GlyphResult glyph_from_codepoint(FontTexture *font, u32 codepoint)
 {
-    u32 notFoundCodepoint = (0xFFFD >= font->unicodeMapCount) ? '?' : 0xFFFD;
+    u32 notFoundCodepoint = font->replacementChar;
     if (codepoint >= (u32)font->unicodeMapCount) { codepoint = notFoundCodepoint; }
 
     i32 glyphIndex = font->unicodeMap[codepoint];
@@ -304,66 +280,30 @@ func void draw_char(DrawContext *ctx, GuiFont *font, f32 x, f32 y, u32 codepoint
     v2 offset = glyph->posMin;
     offset.x *= font->charScale;
     offset.y *= font->charScale;
-    offset.y  = font->ascenderHeight - offset.y;
     v2 size   = v2_init((glyph->posMax.x - glyph->posMin.x) * font->charScale,
                         (glyph->posMax.y - glyph->posMin.y) * font->charScale);
 
-    v2 p = v2_init(x + offset.x, y + offset.y);
-    v2 pAt = v2_init(p.x - (f32)(i32)p.x, p.y - (f32)(i32)p.y);
-
-    u32 *dst = ctx->pixels + (i32)(p.y + ((pAt.y >= 0.5f) ? 0.5f : 0.0f)) * ctx->stride + (i32)(p.x - 0.5f);
+    v2 p = v2_init(x + offset.x, y - offset.y);
+    u32 *dst = ctx->pixels + (i32)(p.y - 0.5f) * ctx->stride + (i32)(p.x + 0.5f);
 
     f32 smoothing = 0.03f / font->charScale;
     v4 txtCol = unpack_color(color);
 
-    i32 calcSize = (font->charScale < 1.0f ? (i32)(font->charScale * (f32)font->texture->texSize) : font->texture->texSize);
-    BitScan msbBit = find_msb32((u32)calcSize);
-    i32 texSize  = (msbBit.found ? (1 << msbBit.index) : 1);
-    i32 texSize2 = texSize * 2;
-    if (texSize2 <= font->texture->texSize)
+    u8 *texture = font->texture->texture;
+    for (i32 yAt = 0; yAt < (i32)(size.y + 1.0f); ++yAt)
     {
-        u8 *texture0 = get_texture_mipmap(font->texture->texture, texSize);
-        u8 *texture1 = get_texture_mipmap(font->texture->texture, texSize2);
-        f32 texT = (f32)(calcSize - texSize) / (f32)texSize;
-        for (i32 yAt = 0; yAt < (i32)(size.y + 1.0f); ++yAt)
+        u32 *d = dst;
+        for (i32 xAt = 0; xAt < (i32)(size.x + 1.0f); ++xAt)
         {
-            u32 *d = dst;
-            for (i32 xAt = 0; xAt < (i32)(size.x + 1.0f); ++xAt)
-            {
-                // TODO(michiel): Multisample??
-                f32 dist0 = text_sample(texture0, texSize, glyph->uvMin, glyph->uvMax, v2_init(pAt.x / size.x, pAt.y / size.y));
-                f32 dist1 = text_sample(texture1, texSize2, glyph->uvMin, glyph->uvMax, v2_init(pAt.x / size.x, pAt.y / size.y));
-                f32 dist  = lerp_f32(dist0, texT, dist1);
-                f32 alpha = text_contour(dist, smoothing);
-                v4 dstCol = txtCol;
-                dstCol.a *= alpha;
-                v4 srcCol = unpack_color(*d);
-                *d++ = pack_color(alpha_blend(srcCol, dstCol));
-                pAt.x += 1.0f;
-            }
-            dst += ctx->stride;
-            pAt.x = p.x - (f32)(i32)p.x;
-            pAt.y += 1.0f;
+            // TODO(michiel): Multisample??
+            f32 dist  = text_sample(texture, font->texture->texSize, glyph->uvMin, glyph->uvMax, v2_init((f32)xAt / size.x, (f32)yAt / size.y));
+            f32 alpha = text_contour(dist, smoothing);
+            v4 dstCol = txtCol;
+            dstCol.a *= alpha;
+            v4 srcCol = unpack_color(*d);
+            *d++ = pack_color(alpha_blend(srcCol, dstCol));
         }
-    }
-    else
-    {
-        u8 *texture = get_texture_mipmap(font->texture->texture, texSize);
-        for (i32 yAt = 0; yAt < (i32)(size.y + 1.0f); ++yAt)
-        {
-            u32 *d = dst;
-            for (i32 xAt = 0; xAt < (i32)(size.x + 1.0f); ++xAt)
-            {
-                // TODO(michiel): Multisample??
-                f32 dist  = text_sample(texture, texSize, glyph->uvMin, glyph->uvMax, v2_init((f32)xAt / size.x, (f32)yAt / size.y));
-                f32 alpha = text_contour(dist, smoothing);
-                v4 dstCol = txtCol;
-                dstCol.a *= alpha;
-                v4 srcCol = unpack_color(*d);
-                *d++ = pack_color(alpha_blend(srcCol, dstCol));
-            }
-            dst += ctx->stride;
-        }
+        dst += ctx->stride;
     }
 }
 
@@ -373,7 +313,8 @@ func void draw_text(DrawContext *ctx, GuiFont *font, f32 x, f32 y, s8 text, u32 
     s8 textAt = text;
     i32 prevIndex = 0;
     f32 atX = x;
-    f32 atY = y + ((font->ascenderHeight - (f32)(i32)font->ascenderHeight));
+    //f32 atY = y + ((font->ascenderHeight - (f32)(i32)font->ascenderHeight));
+    f32 atY = (f32)(i32)(y + font->ascenderHeight + 0.5f * font->lineGap);
 
     while (textAt.size)
     {
@@ -394,7 +335,7 @@ func void draw_text(DrawContext *ctx, GuiFont *font, f32 x, f32 y, s8 text, u32 
                 Glyph *glyph = foundGlyph.glyph;
 
                 i32 kerning = font_get_kerning(font->texture, glyphIndex, prevIndex);
-                atX += (200.0f * font->fontScale * (f32)kerning);
+                atX += (font->fontScale * (f32)kerning);
                 if (firstChar) {
                     atX -= (f32)glyph->glyphOffset.x * font->fontScale;
                 }
