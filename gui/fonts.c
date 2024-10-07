@@ -354,3 +354,50 @@ func void draw_text(DrawContext *ctx, GuiFont *font, f32 x, f32 y, s8 text, u32 
         }
     }
 }
+
+func Rect text_size(GuiFont *font, s8 text)
+{
+    b32 firstChar = true;
+    s8 textAt = text;
+    i32 prevIndex = 0;
+    Rect result = {{0.0f, 0.0f}, {0.0f, font->lineAdvance}};
+
+    while (textAt.size)
+    {
+        u32 codepoint = utf8_decode(&textAt);
+        if (codepoint != U32_MAX)
+        {
+            if (codepoint == '\n')
+            {
+                result.dim.h += font->lineAdvance;
+                prevIndex = 0;
+                firstChar = true;
+            }
+            else
+            {
+                GlyphResult foundGlyph = glyph_from_codepoint(font->texture, codepoint);
+                i32 glyphIndex = foundGlyph.glyphIndex;
+                Glyph *glyph = foundGlyph.glyph;
+
+                i32 kerning = font_get_kerning(font->texture, glyphIndex, prevIndex);
+                result.dim.w += (font->fontScale * (f32)kerning);
+                if (firstChar) {
+                    f32 negOffset = -(f32)glyph->glyphOffset.x * font->fontScale;
+                    if (result.org.x > negOffset) {
+                        result.org.x = negOffset;
+                    }
+                }
+                result.dim.w += font->fontScale * (f32)glyph->xBaseAdvance + font->letterSpacing;
+                prevIndex = glyphIndex;
+                firstChar = false;
+            }
+        }
+        else
+        {
+            //fprintf(stderr, "Malformed UTF-8 codepoint '%#02X'.\n", (u8)textAt.data[0]);
+            textAt = s8adv(textAt, 1);
+            prevIndex = 0;
+        }
+    }
+    return result;
+}

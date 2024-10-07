@@ -156,13 +156,14 @@ int main(int argCount, char **arguments)
     drawing.stride = width;
     drawing.pixels = (u32 *)windowMem;
 
-    UiContext ui;
+    UiContext ui = {0};
     ui.draw = &drawing;
-    ui.mouse.pos = v2i_init(0, 0);
-    ui.mouse.btnDown    = 0;
+    font_setup(&ui.font, &fontTex, 15.0f, 0.0f);
 
     f32 testSlider = 0.5f;
     f32 testSliMet = 0.5f;
+    b32 testPush = false;
+    u32 testRadio = 3;
 
     b32 sizeChanged = false;
     b32 windowIsOpen = true;
@@ -290,6 +291,7 @@ int main(int argCount, char **arguments)
             }
         }
 
+        font_setup(&font, &fontTex, 15.0f, 0.0f);
         draw_rect(&drawing, 0, 0, drawing.dim.w, drawing.dim.h, 0xFF404040);
 
         // NOTE(michiel): Slider
@@ -322,7 +324,19 @@ int main(int argCount, char **arguments)
         append_byte(&sliderStr, 0);
         draw_text(&drawing, &font, 125, 460, s8(sliderStr.size - 1, sliderBuf), 0xFF000000);
 
-        font_setup(&font, &fontTex, 15.0f, 0.0f);
+        ui_button(&ui, 200, 40, 80, 30, cstr("Klik"));
+        if (ui_push_button(&ui, 200, 80, 80, 30, cstr("Push"), testPush)) {
+            testPush = !testPush;
+        }
+        s8 names[] = {
+            cstr("One"),
+            cstr("Two"),
+            cstr("Three"),
+            cstr("Four"),
+            cstr("Five"),
+        };
+        //ui_radio_vert(&ui, 200, 120, 80, 100, sizeof(names)/sizeof(*names), names, &testRadio);
+
         draw_rect(&drawing, 300, 100, 200, 24, 0xFFFF0000);
         draw_char(&drawing, &font, 300, 100, 'A', 0xFF000000);
         draw_char(&drawing, &font, 316, 100, 'a', 0xFF000000);

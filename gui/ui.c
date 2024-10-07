@@ -18,6 +18,7 @@ typedef struct Mouse
 typedef struct UiContext
 {
     DrawContext *draw;
+    GuiFont font;
     Mouse mouse;
     v2i clickPos;
 } UiContext;
@@ -162,7 +163,7 @@ func b32 ui_slider_meter_vert(UiContext *ui, i32 x, i32 y, i32 w, i32 h, f32 *va
     i32 fillAt = y + 1 + radius + handleAt;
     fillCtx.pixels += fillAt * fillCtx.stride;
     fillCtx.dim.h  -= fillAt;
-    draw_round_rect_grad(&fillCtx, x + (w - 7) / 2, y + 1 + radius - fillAt, 7, h - 4 - 2 * radius, 3, UI_ACCENT_COLOR, UI_ACCENT_DARK_COLOR);
+    draw_round_rect_grad(&fillCtx, x + (w - 7) / 2, y + 1 + radius - fillAt, 7, hMod - 4 - 2 * radius, 3, UI_ACCENT_COLOR, UI_ACCENT_DARK_COLOR);
 
     // NOTE(michiel): Handle
     i32 handleX = x + w / 2;
@@ -197,4 +198,57 @@ func void ui_meter_vert(UiContext *ui, i32 x, i32 y, i32 w, i32 h, f32 val)
     fillCtx.pixels += fillAt * fillCtx.stride;
     fillCtx.dim.h  -= fillAt;
     draw_round_rect_grad(&fillCtx, x + 2, y + 1 - fillAt, w - 4, h - 4, 5, UI_ACCENT_COLOR, UI_ACCENT_DARK_COLOR);
+}
+
+func b32 ui_push_button(UiContext *ui, i32 x, i32 y, i32 w, i32 h, s8 label, b32 isPushed)
+{
+    RectI activeRect = rect_init(v2i_init(x, y), v2i_init(w, h));
+    b32 mouseOver = rect_is_inside(activeRect, ui->mouse.pos);
+    b32 result = false;
+    if (mouseOver && (ui->mouse.btnPress & Mouse_Left)) {
+        ui->clickPos = ui->mouse.pos;
+        result = true;
+    }
+    b32 mouseClick = rect_is_inside(activeRect, ui->clickPos);
+    if (mouseClick && ((ui->mouse.btnDown & Mouse_Left) == 0)) {
+        ui->clickPos = v2i_init(0, 0);
+        mouseClick = false;
+    }
+
+    draw_rect(ui->draw, x, y, w, h, UI_BACKGROUND_COLOR);
+
+    draw_round_rect(ui->draw, x + 0, y + 2, w - 0, h - 2, 7, UI_HIGHLIGHT_COLOR);
+    draw_round_rect(ui->draw, x + 1, y + 0, w - 2, h - 2, 6, UI_DARKEN_COLOR);
+    if (mouseClick) {
+        //w -= 4;
+        h -= 2;
+        //x += 2;
+        y += 2;
+        draw_round_rect_grad(ui->draw, x + 2, y + 1, w - 4, h - 4, 5, UI_ACCENT_COLOR, UI_ACCENT_DARK_COLOR);
+    } else if (isPushed) {
+        h -= 1;
+        y += 1;
+        draw_round_rect_grad(ui->draw, x + 2, y + 1, w - 4, h - 4, 5, UI_ACCENT_COLOR, UI_ACCENT_DARK_COLOR);
+    } else {
+        draw_round_rect_grad(ui->draw, x + 2, y + 1, w - 4, h - 4, 5, UI_HIGHLIGHT_COLOR, UI_BACKGROUND_COLOR);
+    }
+
+    Rect textSize = text_size(&ui->font, label);
+    f32 textX = (f32)x + ((f32)w - textSize.dim.w) * 0.5f + textSize.org.x;
+    f32 textY = (f32)y + ((f32)h - textSize.dim.h) * 0.5f + textSize.org.y;
+    draw_text(ui->draw, &ui->font, textX, textY, label, UI_TEXT_COLOR);
+
+    return result;
+}
+
+func b32 ui_button(UiContext *ui, i32 x, i32 y, i32 w, i32 h, s8 label)
+{
+    RectI activeRect = rect_init(v2i_init(x, y), v2i_init(w, h));
+    b32 mouseOver = rect_is_inside(activeRect, ui->mouse.pos);
+    if (mouseOver && (ui->mouse.btnPress & Mouse_Left)) {
+        ui->clickPos = ui->mouse.pos;
+    }
+    b32 mouseClick = rect_is_inside(activeRect, ui->clickPos);
+    b32 result = ui_push_button(ui, x, y, w, h, label, mouseClick);
+    return result;
 }
