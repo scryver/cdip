@@ -123,7 +123,7 @@ int main(int argCount, char **arguments)
 
     OsFile outFile = open_file(cstr("stdout"), OsFile_Write, &permArena, tempArena);
     fmt_buf output = fmt_buf_fd(1024, create(&permArena, byte, 1024), &outFile);
-    append_byte(&output, uniqueChar);
+    append_byte(&output, (byte)uniqueChar);
     append_byte(&output, '\n');
     //debugbreak();
 

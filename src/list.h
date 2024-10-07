@@ -16,28 +16,24 @@ typedef struct DoubleLink
     struct DoubleLink *prev;
 } DoubleLink;
 
-func void
-initialize_link_list(LinkList *list)
+func void link_list_init(LinkList *list)
 {
     list->first = list->last = 0;
 }
 
-func b32
-link_list_empty(LinkList *list)
+func b32 link_list_empty(LinkList *list)
 {
     b32 result = list->first == 0;
     return result;
 }
 
-func void
-link_list_add_end(LinkList *list, LinkItem *item)
+func void link_list_add_end(LinkList *list, LinkItem *item)
 {
     item->next = 0;
     list->last = ((list->last ? list->last->next : list->first) = item);
 }
 
-func LinkItem *
-link_list_pop_first(LinkList *list)
+func LinkItem *link_list_pop_first(LinkList *list)
 {
     LinkItem *result = list->first;
     if (result) {
@@ -50,21 +46,18 @@ link_list_pop_first(LinkList *list)
     return result;
 }
 
-func void
-initialize_double_link(DoubleLink *list)
+func void double_link_init(DoubleLink *list)
 {
     list->next = list->prev = list;
 }
 
-func b32
-double_link_empty(DoubleLink *list)
+func b32 double_link_empty(DoubleLink *list)
 {
     b32 result = list->next == list;
     return result;
 }
 
-func void
-double_link_add_end(DoubleLink *list, DoubleLink *item)
+func void double_link_add_end(DoubleLink *list, DoubleLink *item)
 {
     item->next = list;
     item->prev = list->prev;
@@ -72,8 +65,7 @@ double_link_add_end(DoubleLink *list, DoubleLink *item)
     item->prev->next = item;
 }
 
-func void
-double_link_add_start(DoubleLink *list, DoubleLink *item)
+func void double_link_add_start(DoubleLink *list, DoubleLink *item)
 {
     item->prev = list;
     item->next = list->next;
@@ -81,8 +73,7 @@ double_link_add_start(DoubleLink *list, DoubleLink *item)
     item->next->prev = item;
 }
 
-func void
-double_link_remove(DoubleLink *item)
+func void double_link_remove(DoubleLink *item)
 {
     item->prev->next = item->next;
     item->next->prev = item->prev;

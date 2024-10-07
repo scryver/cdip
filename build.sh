@@ -19,7 +19,7 @@ baseGcc=""
 # removed: -Wno-sign-conversion
 sharedOpts="$baseOpts -std=c11 -Wall -Wextra -Werror -Wshadow -Wdouble-promotion -Wundef -Wconversion -Wno-missing-braces -Wno-unused-function -Wno-unused-parameter -Wno-unused-variable -Wno-missing-field-initializers -Wno-strict-aliasing -Wno-trigraphs -fno-delete-null-pointer-checks -fno-strict-aliasing -fwrapv -ffunction-sections -fdata-sections -fsanitize=unreachable -Wl,--gc-sections"
 optsClang="$sharedOpts $baseClang -march=x86-64 -msha -msse4 -pedantic -Wno-gnu-zero-variadic-macro-arguments -Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-writable-strings -Wno-c99-extensions -Wno-four-char-constants -Wno-keyword-macro"
-optsGcc="$sharedOpts $baseGcc -march=x86-64 -Wno-write-strings -Wno-unused-but-set-variable -Wno-multichar"
+optsGcc="$sharedOpts $baseGcc -march=x86-64 -Wno-write-strings -Wno-unused-but-set-variable -Wno-multichar" # -Wpedantic
 
 #compiler=clang
 #opts="$optsClang"
@@ -40,7 +40,8 @@ cd "$buildDir" > /dev/null
     $compiler $opts "$fantasyDir"/namegen.c -o fantasy-name &
     $compiler $opts "$lispDir"/lips.c -o lips &
 
-    $compiler $opts "$curDir"/gui/x11test.c -o x11-test -lX11 &
+    #$compiler $opts -isystem /usr/include/freetype2 "$curDir"/gui/x11test.c -o x11-test -lX11 -lXft &
+    $compiler $opts "$curDir"/gui/x11test.c -o x11-test -lX11 -lz -lm &
     $compiler $opts "$curDir"/gui/wavefunccollapse.c -o wave-func-collapse -lX11 &
 
     $compiler $opts "$curDir"/keyval/keyval_server.c -o keyval-server &

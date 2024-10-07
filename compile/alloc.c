@@ -24,16 +24,14 @@ func void *allocate(sze size, ArenaType arena)
 {
     ArenaBlock *ap = gAllocArena[arena];
     sze needed = roundup(size, ALLOC_ALIGNMENT);
-    while ((ap->avail + needed) > ap->limit)
+    while (needed > (ap->limit - ap->avail))
     {
-        ap->next = gFreeBlocks;
-        if (ap->next != null) {
+        if (gFreeBlocks) {
+            ap = ap->next = gFreeBlocks;
             gFreeBlocks = gFreeBlocks->next;
-            ap = ap->next;
         } else {
             sze newSize = sizeof(ArenaAlign) + needed + kilobytes(10);
-            ap->next = xalloc(newSize, 0);
-            ap = ap->next;
+            ap = ap->next = xalloc(newSize, 0);
             if (ap == null) {
                 error("Out of memory!");
                 exit(1);

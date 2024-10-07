@@ -39,7 +39,7 @@ void append(fmt_buf *f, byte *src, sze len)
     }
 }
 
-#define append_cstr(f, s) append(f, s, lengthof(s))
+#define append_cstr(f, s) append(f, (byte *)s, lengthof(s))
 #define append_s8(f, s)   append(f, (byte *)s.data, s.size)
 #define append_buf(f, b)  append(f, b.data, b.size)
 
@@ -55,7 +55,7 @@ void append_i64(fmt_buf *f, i64 x)
     byte *beg = end;
     i64 t = (x < 0) ? x : -x;
     do {
-        *--beg = '0' - (char)(t % 10);
+        *--beg = (byte)('0' - (char)(t % 10));
         t /= 10;
     } while (t);
     if (x < 0) {
@@ -70,7 +70,7 @@ void append_u64(fmt_buf *f, u64 x)
     byte *end = temp + sizeof(temp);
     byte *beg = end;
     do {
-        *--beg = '0' + (char)(x % 10);
+        *--beg = (byte)('0' + (char)(x % 10));
         x /= 10;
     } while (x);
     append(f, beg, end - beg);
@@ -80,7 +80,7 @@ void append_hex64(fmt_buf *f, u64 x)
 {
     append_cstr(f, "0x");
     for (sze idx = 2 * sizeof(x) - 1; idx >= 0; --idx) {
-        append_byte(f, "0123456789ABCDEF"[(x >> (4*idx)) & 0xF]);
+        append_byte(f, (byte)("0123456789ABCDEF"[(x >> (4*idx)) & 0xF]));
     }
 }
 
@@ -88,7 +88,7 @@ void append_hex32(fmt_buf *f, u32 x)
 {
     append_cstr(f, "0x");
     for (sze idx = 2 * sizeof(x) - 1; idx >= 0; --idx) {
-        append_byte(f, "0123456789ABCDEF"[(x >> (4*idx)) & 0xF]);
+        append_byte(f, (byte)("0123456789ABCDEF"[(x >> (4*idx)) & 0xF]));
     }
 }
 

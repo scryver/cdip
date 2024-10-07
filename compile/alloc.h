@@ -2,6 +2,7 @@ typedef enum ArenaType
 {
     ArenaType_Perm,
     ArenaType_Func,
+    ArenaType_Stmt,
 } ArenaType;
 
 func void *allocate(sze size, ArenaType arena);

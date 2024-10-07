@@ -18,7 +18,7 @@ typedef int64_t       i64;
 typedef int32_t       b32;
 
 // Pointer stuff
-typedef char          byte;
+typedef unsigned char byte;
 typedef ptrdiff_t     sze;
 typedef uintptr_t     uptr;
 typedef size_t        usze;

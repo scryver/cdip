@@ -93,7 +93,7 @@ func BitScan find_msb32(u32 value)
     result.found = (value > 0);
     if (result.found) {
 #if __has_builtin(__builtin_clz)
-        result.index = __builtin_clz(value);
+        result.index = 31 - __builtin_clz(value);
 #else
         for(i32 test = 31; test >= 0; --test) {
             if (value & (1 << test)) {
@@ -131,7 +131,7 @@ func BitScan find_msb64(u64 value)
     result.found = (value > 0);
     if (result.found) {
 #if __has_builtin(__builtin_clzl)
-        result.index = __builtin_clzl(value);
+        result.index = 63 - __builtin_clzl(value);
 #else
         for(i32 test = 63; test >= 0; --test) {
             if (value & (1 << test)) {

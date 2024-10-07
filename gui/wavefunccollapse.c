@@ -234,7 +234,7 @@ func void find_lowest_entropy(void)
                     if (!scan.found) {
                         debugbreak();
                     } else {
-                        tile->collapsed = scan.index;
+                        tile->collapsed = (TileKind)scan.index;
                     }
                     gOptionIdx = 0;
                     return;
@@ -353,7 +353,7 @@ func void fill_screen(u8 *screen, i32 width, i32 height, i32 pixelBytes)
             i32 imageIdx = -1;
             if (gridIdx < countof(gGrid)) {
                 if (gGrid[gridIdx].collapsed < TileKindCount) {
-                    imageIdx = gGrid[gridIdx].collapsed;
+                    imageIdx = (i32)gGrid[gridIdx].collapsed;
                 }
             }
 

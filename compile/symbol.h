@@ -1,6 +1,6 @@
 typedef enum Scope
 {
-    Scope_Const,
+    Scope_Const = 1,
     Scope_Labels,
     Scope_Global,
     Scope_Param,
@@ -27,17 +27,17 @@ typedef struct Origin
 
 typedef union Value
 {
-    i8  int8;
-    i16 int16;
-    i32 int32;
-    i64 int64;
-    u8  uint8;
-    u16 uint16;
-    u32 uint32;
-    u64 uint64;
-    f32 flt32;
-    f64 flt64;
-    void *ptr;
+    i8    sc;
+    i16   ss;
+    i32   i;
+    i64   sl;
+    u8    uc;
+    u16   us;
+    u32   u;
+    u64   ul;
+    f32   f;
+    f64   d;
+    void *p;
 } Value;
 
 typedef struct Symbol
@@ -48,7 +48,9 @@ typedef struct Symbol
     struct Symbol *parent;
     List *uses;
     Storage sClass;
-    // symbol flags [p50]
+    u32 temporary : 1;
+    u32 generated : 1;
+    u32 defined   : 1;
     Type *type;
     f32 ref;
     union {
@@ -56,7 +58,11 @@ typedef struct Symbol
             i32 label;
             struct Symbol *equatedTo;
         } l; // label
-        // struct [p65]
+        struct {
+            u32 cFields : 1;
+            u32 vFields : 1;
+            Field *fList;
+        } s; // struct
         // enum const  [p69]
         // enum types  [p68]
         struct {

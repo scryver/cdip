@@ -6,6 +6,9 @@ global Table gTableIds   = {Scope_Global};
 global Table gTableTypes = {Scope_Global};
 
 global Origin gOrigin;
+global i32 gTempId;
+global List *gLocation;
+global List *gSymbols;
 
 gConstants   = &gTableConst;
 gExternals   = &gTableExtrn;
@@ -53,7 +56,7 @@ func void enter_scope(void)
 
 func void exit_scope(void)
 {
-    rm_types(gLevel);
+    remove_types(gLevel);
     if (gTypes->level == gLevel) {
         gTypes = gTypes->prev;
     }
@@ -66,7 +69,9 @@ func void exit_scope(void)
 
 func uptr table_hash(s8 name)
 {
-    uptr hashIdx = ((uptr)name.data >> 4) & (TABLE_HASH_SIZE - 1);
+    // NOTE(michiel): The name data pointer is coming from InternString which is allocated with a round on 16-byte boundary
+    // so the lowest 5 bits are always the same.
+    uptr hashIdx = ((uptr)name.data >> 5) & (TABLE_HASH_SIZE - 1);
     return hashIdx;
 }
 
@@ -85,6 +90,37 @@ func Symbol *install(s8 name, Table **tp, i32 level, ArenaType arena)
     t->all = &entry->sym;
     entry->link = t->buckets[hashIdx];
     t->buckets[hashIdx] = entry;
+    Symbol *result = &entry->sym;
+    return result;
+}
+
+func Symbol *relocate(s8 name, Table *src, Table *dst)
+{
+    uptr hashIdx = table_hash(name);
+    TableEntry **q;
+    for (q = &src->buckets[hashIdx]; *q; q = &(*q)->link)
+    {
+        if (name == (*q)->sym.name) {
+            break;
+        }
+    }
+    // TODO(michiel): assert(*q)
+
+    // NOTE(michiel): Remove the entry from the src hash chain and from its list of symbols
+    TableEntry *entry = *q;
+    *q = (*q)->link;
+
+    Symbol **r;
+    for (r = &src->all; *r && (*r != &entry->sym); r = &(*r)->up) { }
+    // TODO(michiel): assert(*r && *r == &entry->sym)
+    *r = entry->sym.up;
+
+    // NOTE(michiel): Insert the entry into dst hash chain and into the list of symbols.
+    entry->sym.up = dst->all;
+    dst->all = &entry->sym;
+    entry->link = dst->buckets[hashIdx];
+    dst->buckets[hashIdx] = entry;
+    // NOTE(michiel): Return the symbol table entry
     Symbol *result = &entry->sym;
     return result;
 }
@@ -157,19 +193,37 @@ func Symbol *constant(Type *type, Value v)
         if (type_eq(type, test->sym.type, true)) {
 #define val_eq(x)    (v.x == test->sym.u.c.v.x)
             switch (type->op) {
-                case Type_i8 : { if (val_eq(int8))   { result = &test->sym; } } break;
-                case Type_i16: { if (val_eq(int16))  { result = &test->sym; } } break;
-                case Type_i32: { if (val_eq(int32))  { result = &test->sym; } } break;
-                case Type_i64: { if (val_eq(int64))  { result = &test->sym; } } break;
-                case Type_u8 : { if (val_eq(uint8))  { result = &test->sym; } } break;
-                case Type_u16: { if (val_eq(uint16)) { result = &test->sym; } } break;
-                case Type_u32: { if (val_eq(uint32)) { result = &test->sym; } } break;
-                case Type_u64: { if (val_eq(uint64)) { result = &test->sym; } } break;
-                case Type_f32: { if (val_eq(flt32))  { result = &test->sym; } } break;
-                case Type_f64: { if (val_eq(flt64))  { result = &test->sym; } } break;
-                case Type_Array:
-                case Type_Function:
-                case Type_Pointer: { if (val_eq(ptr)) { result = &test->sym; } } break;
+                case TypeChar    : { if (val_eq(uc)) { result = &test->sym; } } break;
+                case TypeShort   : { if (val_eq(ss)) { result = &test->sym; } } break;
+                case TypeInt     : { if (val_eq(i))  { result = &test->sym; } } break;
+                case TypeLong    : { if (val_eq(sl)) { result = &test->sym; } } break;
+                case TypeUnsigned: { if (val_eq(ul)) { result = &test->sym; } } break;
+                case TypeFloat   : {
+                    // TODO(michiel): Should we handle 0.0 and -0.0 the same?
+                    if (v.f == 0.0f) {
+                        f32 z1 = v.f; f32 z2 = test->sym.u.c.v.f;
+                        char *b1 = (char *)&z1; char *b2 = (char *)&z2;
+                        if (b1[sizeof(f32) - 1] == b2[sizeof(f32) - 1]) {
+                            result = &test->sym;
+                        }
+                    } else if (val_eq(f)) {
+                        result = &test->sym;
+                    }
+                } break;
+                case TypeDouble: {
+                    if (v.d == 0.0) {
+                        f64 z1 = v.d; f64 z2 = test->sym.u.c.v.d;
+                        char *b1 = (char *)&z1; char *b2 = (char *)&z2;
+                        if (b1[sizeof(f64) - 1] == b2[sizeof(f64) - 1]) {
+                            result = &test->sym;
+                        }
+                    } else if (val_eq(d)) {
+                        result = &test->sym;
+                    }
+                } break;
+                case TypeArray:
+                case TypeFunction:
+                case TypePointer: { if (val_eq(p)) { result = &test->sym; } } break;
                 invalid_default;
             }
 #undef val_eq
@@ -209,6 +263,131 @@ func Symbol *constant(Type *type, Value v)
 func Symbol *int_const(i64 n)
 {
     Value v;
-    v.int64 = n;
+    v.sl = n;
     return constant(gIntType, v);
+}
+
+func Symbol *gen_identifier(Storage sClass, Type *type, i32 level)
+{
+    Symbol *p = create0(Symbol, level >= Scope_Local ? ArenaType_Func : ArenaType_Perm);
+    p->name = stringd(gen_label(1));
+    p->scope = level;
+    p->sClass = sClass;
+    p->type = type;
+    p->generated = true;
+    if (level == Scope_Global) {
+        gIr->def_symbol(p);
+    }
+    return p;
+}
+
+func Symbol *gen_temporary(Storage sClass, Type *type)
+{
+    Symbol *p = create0(Symbol, ArenaType_Func);
+    p->name = stringd(++gTempId);
+    p->scope = gLevel < Scope_Local ? Scope_Local : gLevel;
+    p->sClass = sClass;
+    p->type = type;
+    p->generated = true;
+    p->temporary = true;
+    return p;
+}
+
+func Symbol *new_temporary(Storage sClass, i32 typeClass)
+{
+    Symbol *p = gen_temporary(sClass, backend_type(typeClass));
+    gIr->local(p);
+    p->defined = true;
+    return p;
+}
+
+func Symbol *all_symbols(Table *t)
+{
+    return t->all;
+}
+
+func void locus(Table *t, Origin *o)
+{
+    gLocation = append(gLocation, o);
+    gSymbols = append(gSymbols, all_symbols(t));
+}
+
+func void use(Symbol *p, Origin src) {
+    Origin *o = create(Origin, ArenaType_Perm);
+    *o = src;
+	p->uses = append(o, p->uses);
+}
+
+func Symbol *find_type(Type *type)
+{
+    Table *t = gIdentifiers;
+    // TODO(michiel): assert(t)
+    Symbol *result = 0;
+    do {
+        for (i32 idx = 0; idx < TABLE_HASH_SIZE; ++idx) {
+            for (TableEntry *entry = tp->buckets[idx]; entry; entry = entry->link) {
+                if ((entry->sym.type == type) && (entry->sym.sClass == Storage_Typedef)) {
+                    result = &entry->sym;
+                    goto found;
+                }
+            }
+        }
+        t = tp->prev;
+    } while (t);
+    found:
+    return result;
+}
+
+func Symbol *make_string_symbol(s8 str)
+{
+    Value v;
+    v.p = str.data;
+    Symbol *p = constant(get_array(gCharType, str.size + 1, 0), v);
+    if (p->u.c.loc == 0) {
+        p->u.c.loc = gen_identifier(Storage_Static, p->type, Scope_Global);
+    }
+    return p;
+}
+
+func Symbol *make_symbol(Storage sClass, s8 name, Type *type)
+{
+    Symbol *result;
+    if (sClass == Storage_Extern) {
+        result = install(string(name), &gGlobals, Scope_Global, ArenaType_Perm);
+    } else {
+        result = create0(Symbol, ArenaType_Perm);
+        result->name = string(name);
+        result->scope = Scope_Global;
+    }
+    result->sClass = sClass;
+    result->type = type;
+    gIr->def_symbol(result);
+    result->defined = true;
+    return result;
+}
+
+func s8 string_from_value(Type *type, Value v)
+{
+    s8 result;
+    type = unqual(type);
+    switch (type->op) {
+        case TypeChar    : { result = stringd(v.uc); } break;
+        case TypeShort   : { result = stringd(v.ss); } break;
+        case TypeInt     : { result = stringd(v.i); } break;
+        case TypeLong    : { result = stringd(v.l); } break;
+        case TypeUnsigned: { result = stringf((v.ul & ~0x7FFF) ? "0x%X" : "%lu", v.ul); } break;
+        case TypeFloat   : { result = stringf("%g", (f64)v.f); } break;
+        case TypeDouble  : { result = stringf("%g", v.d); } break;
+        case TypeArray   : {
+            if ((type->type == gCharType) || (type->type == gSignedCharType) || (type->type == gUnsignedCharType)) {
+                result = s8(s8len(v.p), v.p); // TODO(michiel): How do we know the length?
+            } else {
+                result = stringf("%p", v.p);
+            }
+        } break;
+        case TypeFunction:
+        case TypePointer: { result = stringf("%p", v.p); } break;
+        invalid_default;
+    }
+    return result;
 }

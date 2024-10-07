@@ -1,7 +1,7 @@
 // NOTE(michiel): For keysym see:  /usr/include/X11/keysymdef.h
-#include<X11/Xlib.h>
-#include<X11/Xutil.h>
-#include<X11/Xatom.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/Xatom.h>
 
 enum
 {
@@ -9,6 +9,14 @@ enum
     NET_WM_STATE_ADD       = 1,
     NET_WM_STATE_TOGGLE    = 2
 };
+
+#define LINUX_LEFT_MOUSE   1
+#define LINUX_RIGHT_MOUSE  3
+#define LINUX_MIDDLE_MOUSE 2
+#define LINUX_SCROLL_UP    4
+#define LINUX_SCROLL_DOWN  5
+#define LINUX_EXT1_MOUSE   8
+#define LINUX_EXT2_MOUSE   9
 
 func void window_set_size_hints(Display *display, Window window, i32 minWidth, i32 minHeight, i32 maxWidth, i32 maxHeight)
 {

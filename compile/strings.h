@@ -12,6 +12,17 @@ func b32 s8eq(s8 a, s8 b)
     return result;
 }
 
+func sze s8len(char *c)
+{
+    sze result = 0;
+    if (c) {
+        while (c[result]) {
+            ++result;
+        }
+    }
+    return result;
+}
+
 func s8 string(s8 str);
 func s8 stringd(i64 d);
 

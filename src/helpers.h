@@ -16,6 +16,7 @@
 #define sizeof(x)            (sze)sizeof(x)
 #define sizeof_member(T, m)  sizeof(((T *)0)->m)
 #define alignof(x)           (sze)_Alignof(x)
+
 #if __has_builtin(__builtin_offsetof)
 #define offsetof(T, m)       (sze)__builtin_offsetof(T, m)
 #else
@@ -175,8 +176,10 @@ typedef struct Win32FileAttribData
 #define W32FUNC(ret)  __declspec(dllimport) ret __stdcall
 
 #define CP_UTF8                  65001
-#define MEM_RESERVE              0x00002000
 #define MEM_COMMIT               0x00001000
+#define MEM_RESERVE              0x00002000
+#define MEM_DECOMMIT             0x00004000
+#define MEM_RELEASE              0x00008000
 #define PAGE_READWRITE           0x04
 #define INVALID_HANDLE_VALUE     ((void *)(uptr)-1)
 #define INVALID_SET_FILE_POINTER 0xFFFFFFFF
@@ -191,6 +194,7 @@ typedef struct Win32FileAttribData
 
 W32FUNC(u32)    GetLastError(void);
 W32FUNC(byte *) VirtualAlloc(byte *address, usze size, u32 allocType, u32 protect);
+W32FUNC(b32)    VirtualFree(byte *address, usze size, u32 freeType);
 W32FUNC(handle) GetStdHandle(u32 stdHandle);
 W32FUNC(handle) CreateFileW(wchar_t *filename, u32 desiredAccess, u32 shareMode, void *security, u32 creationDisposition, u32 flagsAttribs, handle templateFile);
 W32FUNC(b32)    CloseHandle(handle file);
